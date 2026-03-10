@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - feature/full-integration
+  pull_request:
+    branches:
+      - feature/full-integration
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DB migration (if present)
+        run: npm run migrate-db
+        continue-on-error: true
+
+      - name: Smoke test
+        run: node -e "console.log('CI smoke test')"
