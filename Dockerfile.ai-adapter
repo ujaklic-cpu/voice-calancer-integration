@@ -1,0 +1,17 @@
+FROM node:18-slim
+
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm ci --production
+
+COPY . .
+
+# NOTE:
+# - This image must include the copilot CLI binary and its authentication config.
+# - You can either:
+#   1) Install copilot in the Dockerfile (follow official install steps), or
+#   2) Bind-mount the host copilot binary/config into the container (easier for development).
+#
+# See the repo docs for copilot CLI install details and ensure the container has network access
+# to authenticate/use the CLI before calling it.
+CMD ["node", "ai_adapter.js"]

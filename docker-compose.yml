@@ -1,0 +1,40 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    image: voice-calendar-app:local
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - COQUI_TTS_URL=http://coqui-tts:5002
+      - WHISPER_URL=http://whisper:9001
+    depends_on:
+      - ai-adapter
+      - whisper
+      - coqui-tts
+
+  ai-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai-adapter
+    image: ai-adapter:local
+    # If you prefer to mount host copilot credentials instead of installing in image:
+    # volumes:
+    #   - /home/you/.config/copilot:/root/.config/copilot:ro
+    depends_on:
+      - whisper
+
+  whisper:
+    # Placeholder image for a Whisper HTTP service. Replace with the server image you choose.
+    image: ghcr.io/ggerganov/whisper.cpp:latest
+    ports:
+      - "9001:9001"
+
+  coqui-tts:
+    # Placeholder image for Coqui TTS inference server — build an image that serves chosen model via REST.
+    image: coqui/tts:latest
+    ports:
+      - "5002:5002"
