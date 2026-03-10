@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - feature/full-integration
+      - copilot/feature-full-integration
   pull_request:
     branches:
+      - main
       - feature/full-integration
 
 jobs:
