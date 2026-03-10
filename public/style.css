@@ -1,0 +1,58 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #f5f7fa;
+  color: #333;
+  padding: 2rem;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+
+h1 { margin-bottom: 1.5rem; font-size: 1.5rem; }
+
+section { margin-bottom: 1.5rem; }
+
+button {
+  padding: .5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #4285f4;
+  color: #fff;
+  font-size: 1rem;
+}
+
+button:disabled { background: #aaa; cursor: not-allowed; }
+
+#transcript {
+  margin-top: .75rem;
+  min-height: 2rem;
+  color: #555;
+  font-style: italic;
+}
+
+#event-json {
+  background: #f0f0f0;
+  border-radius: 4px;
+  padding: 1rem;
+  font-size: .85rem;
+  white-space: pre-wrap;
+  min-height: 4rem;
+  margin-bottom: .75rem;
+}
+
+#feedback {
+  margin-top: 1rem;
+  color: #c0392b;
+  min-height: 1.2rem;
+}
+
+#auth-status { margin-left: .75rem; font-size: .9rem; color: #27ae60; }
