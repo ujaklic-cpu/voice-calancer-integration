@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Calendar Integrator</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Voice Calendar Integrator</h1>
+
+    <section id="auth-section">
+      <button id="btn-auth">Connect Google Calendar</button>
+      <span id="auth-status"></span>
+    </section>
+
+    <section id="voice-section">
+      <button id="btn-record" disabled>🎙 Record</button>
+      <p id="transcript"></p>
+    </section>
+
+    <section id="result-section">
+      <pre id="event-json"></pre>
+      <button id="btn-create" disabled>Add to Calendar</button>
+    </section>
+
+    <div id="feedback"></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

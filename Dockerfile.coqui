@@ -1,0 +1,17 @@
+# Dockerfile.coqui
+# Coqui TTS inference server.
+# Build: docker build -f Dockerfile.coqui -t coqui-tts-server .
+
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y libsndfile1 && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir TTS flask gunicorn
+
+COPY scripts/coqui_server.py /app/coqui_server.py
+
+EXPOSE 5002
+
+CMD ["gunicorn", "--bind", "0.0.0.0:5002", "--timeout", "300", "coqui_server:app"]

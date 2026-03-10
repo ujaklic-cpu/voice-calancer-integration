@@ -1,15 +1,24 @@
-// Basic Express server wiring the main endpoints:
-// - POST /api/stt       : accepts audio file (multipart/form-data) -> forwards to Whisper service
-// - POST /api/ai        : accepts { text, lang } -> calls ai_adapter -> returns structured JSON
-// - POST /api/calendar  : accepts event JSON -> uses googleapis to create/update event
-// - POST /api/tts       : accepts { text, lang } -> calls Coqui TTS and returns audio as base64
+'use strict';
+/**
+ * server.js
+ * Express server wiring all integration endpoints:
+ * - GET  /auth/url          : returns Google OAuth redirect URL
+ * - GET  /auth/callback     : handles OAuth callback, stores tokens
+ * - POST /api/stt           : accepts audio file -> Whisper STT service
+ * - POST /api/ai            : accepts { text, lang } -> ai_adapter -> structured JSON
+ * - POST /api/calendar      : accepts event JSON -> Google Calendar API
+ * - POST /api/tts           : accepts { text, lang } -> Coqui TTS -> base64 audio
+ * - GET  /                  : serves static frontend (public/)
+ */
 
+const path = require('path');
 const express = require('express');
 const axios = require('axios');
 const multer = require('multer');
 const bodyParser = require('body-parser');
 const { callCopilotCli } = require('./ai_adapter');
 const { google } = require('googleapis');
+const { getAuthUrl, exchangeCode, saveTokens, getAuthenticatedClient } = require('./lib/oauth');
 
 require('dotenv').config();
 
@@ -17,12 +26,45 @@ const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
 app.use(bodyParser.json({ limit: '10mb' }));
 
+// Serve static frontend files from /public
+app.use(express.static(path.join(__dirname, 'public')));
+
 const WHISPER_URL = process.env.WHISPER_URL || 'http://whisper:9001';
 const COQUI_TTS_URL = process.env.COQUI_TTS_URL || 'http://coqui-tts:5002';
 
+// ---- OAuth endpoints ----
+
+// GET /auth/url?userId=<id>
+// Returns a Google OAuth2 redirect URL for the given user.
+app.get('/auth/url', (req, res) => {
+  const userId = req.query.userId || 'default';
+  try {
+    const url = getAuthUrl(userId);
+    return res.json({ url });
+  } catch (err) {
+    return res.status(500).json({ error: 'Could not build auth URL', detail: err.message });
+  }
+});
+
+// GET /auth/callback?code=<code>&state=<userId>
+// Exchanges the authorization code for tokens and stores them.
+app.get('/auth/callback', async (req, res) => {
+  const { code, state: userId } = req.query;
+  if (!code) return res.status(400).send('Missing code parameter');
+  try {
+    const tokens = await exchangeCode(code);
+    saveTokens(userId || 'default', tokens);
+    return res.redirect('/?auth=ok');
+  } catch (err) {
+    console.error('OAuth callback error', err.message);
+    return res.status(500).send('OAuth error: ' + err.message);
+  }
+});
+
+// ---- API endpoints ----
+
 // POST /api/stt
-// Receives audio file (multipart form: field name "audio") and proxies to a Whisper service.
-// Adjust the target endpoint to whichever whisper server you run (whisper.cpp wrapper, custom Flask server, etc.)
+// Receives audio file (multipart form: field name "audio") and proxies to Whisper service.
 app.post('/api/stt', upload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'missing audio file' });
   try {
@@ -30,7 +72,6 @@ app.post('/api/stt', upload.single('audio'), async (req, res) => {
       headers: { 'Content-Type': 'application/octet-stream' },
       timeout: 120000
     });
-    // Expected response shape: { text, language, confidence }
     return res.json(r.data);
   } catch (err) {
     console.error('STT error', err?.response?.data || err.message);
@@ -40,13 +81,12 @@ app.post('/api/stt', upload.single('audio'), async (req, res) => {
 
 // POST /api/ai
 // Input: { text, lang }
-// Returns: structured event JSON per contract
+// Returns: structured event JSON
 app.post('/api/ai', async (req, res) => {
   const { text, lang } = req.body;
   if (!text) return res.status(400).json({ error: 'missing text' });
   try {
     const parsed = await callCopilotCli(text, lang || 'und');
-    // Basic validation
     if (!parsed || typeof parsed !== 'object') {
       return res.status(502).json({ error: 'AI returned invalid JSON', raw: parsed });
     }
@@ -57,24 +97,15 @@ app.post('/api/ai', async (req, res) => {
   }
 });
 
-// Utility: placeholder to get OAuth2 client for a user
-function getOAuth2ClientForUser(userId) {
-  // TODO: implement tokens store and refresh logic.
-  // For now this returns an unauthenticated client; calling calendar API will fail until you set credentials.
-  const oAuth2Client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-  // Load stored tokens for userId and call oAuth2Client.setCredentials(tokens)
-  return oAuth2Client;
-}
-
 // POST /api/calendar
-// Input: structured event JSON (see contract)
+// Input: structured event JSON (userId required for token lookup)
 app.post('/api/calendar', async (req, res) => {
   const event = req.body;
   if (!event || !event.title || !event.start) return res.status(400).json({ error: 'invalid event' });
 
   try {
-    const userId = req.body.userId || 'default';
-    const auth = getOAuth2ClientForUser(userId);
+    const userId = event.userId || 'default';
+    const auth = await getAuthenticatedClient(userId);
     const calendar = google.calendar({ version: 'v3', auth });
 
     const eventBody = {
@@ -104,7 +135,6 @@ app.post('/api/tts', async (req, res) => {
   const { text, lang, voice } = req.body;
   if (!text) return res.status(400).json({ error: 'missing text' });
   try {
-    // Example Coqui TTS REST endpoint; adjust according to chosen inference server
     const r = await axios.post(`${COQUI_TTS_URL}/synthesize`, { text, lang, voice }, { responseType: 'arraybuffer', timeout: 120000 });
     const audioBase64 = Buffer.from(r.data).toString('base64');
     return res.json({ audioBase64, mimeType: r.headers['content-type'] || 'audio/wav' });
