@@ -317,23 +317,42 @@
   <script>
     let mediaRecorder, audioChunks = [], audioBlob = null, parsedEvent = null, createdEvent = null;
     let inputMode = 'voice';
+    let csrfToken = '';
 
     // ---- Bootstrap ----
     (async function init() {
       try {
         const r = await fetch('/auth/status');
         const d = await r.json();
-        if (d.authenticated) showMain(d.authEnabled);
-        else document.getElementById('loginOverlay').style.display = 'flex';
+        if (d.authenticated) {
+          await fetchCsrfToken();
+          showMain(d.authEnabled);
+        } else {
+          document.getElementById('loginOverlay').style.display = 'flex';
+        }
       } catch (_) {
         document.getElementById('loginOverlay').style.display = 'flex';
       }
     })();
 
+    async function fetchCsrfToken() {
+      try {
+        const r = await fetch('/auth/csrf-token');
+        const d = await r.json();
+        csrfToken = d.csrfToken || '';
+      } catch (_) {
+        csrfToken = '';
+      }
+    }
+
     function showMain(authEnabled) {
       document.getElementById('loginOverlay').style.display = 'none';
       document.getElementById('main').style.display = 'flex';
       if (authEnabled) document.getElementById('logoutBtn').style.display = '';
+    }
+
+    function postHeaders() {
+      return { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken };
     }
 
     // ---- Login ----
@@ -355,6 +374,9 @@
         });
         const d = await r.json();
         if (!r.ok) { errEl.textContent = d.error || 'Login failed.'; return; }
+        // Server returns a CSRF token in the login response
+        csrfToken = d.csrfToken || '';
+        if (!csrfToken) await fetchCsrfToken();
         showMain(true);
       } catch (e) {
         errEl.textContent = 'Network error.';
@@ -362,7 +384,7 @@
     }
 
     async function doLogout() {
-      await fetch('/auth/logout', { method: 'POST' });
+      await fetch('/auth/logout', { method: 'POST', headers: postHeaders() });
       location.reload();
     }
 
@@ -434,7 +456,7 @@
       try {
         const fd = new FormData();
         fd.append('audio', audioBlob, 'recording.webm');
-        const res = await fetch('/api/stt', { method: 'POST', body: fd });
+        const res = await fetch('/api/stt', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
         document.getElementById('transcript').value = data.text || '';
@@ -456,7 +478,7 @@
       try {
         const res = await fetch('/api/ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: postHeaders(),
           body: JSON.stringify({ text })
         });
         const data = await res.json();
@@ -484,7 +506,7 @@
       try {
         const res = await fetch('/api/calendar', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: postHeaders(),
           body: JSON.stringify({ ...parsedEvent, userId })
         });
         const data = await res.json();
@@ -511,7 +533,7 @@
       try {
         const res = await fetch('/api/tts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: postHeaders(),
           body: JSON.stringify({ text, lang: parsedEvent?.language || 'en' })
         });
         const data = await res.json();

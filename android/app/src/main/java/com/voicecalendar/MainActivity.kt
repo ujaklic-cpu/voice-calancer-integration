@@ -163,7 +163,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             tvAuthStatus.setTextColor(getColor(R.color.error))
             return
         }
-        val cookie = prefs.getString("session_cookie", "") ?: ""
         val url = "$serverUrl/auth/url?userId=${Uri.encode(userId)}"
         // Open in browser (the OAuth flow happens in a browser)
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
@@ -171,8 +170,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         })
         tvAuthStatus.text = "Complete OAuth in the browser, then return here."
         tvAuthStatus.setTextColor(getColor(R.color.text_ok))
-        // Suppress unused warning
-        cookie.length
     }
 
     // ---------------------------------------------------------------------------
@@ -360,12 +357,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val serverUrl = prefs.getString("server_url", "") ?: ""
         if (serverUrl.isEmpty()) return Pair(false, "Server URL not configured.")
         val cookie = prefs.getString("session_cookie", "") ?: ""
+        val csrfToken = prefs.getString("csrf_token", "") ?: ""
         return try {
             val reqBody = body.toRequestBody("application/json".toMediaType())
             val builder = Request.Builder()
                 .url("${serverUrl.trimEnd('/')}$path")
                 .header("Content-Type", "application/json")
             if (cookie.isNotEmpty()) builder.header("Cookie", cookie)
+            if (csrfToken.isNotEmpty()) builder.header("X-CSRF-Token", csrfToken)
             val request = when (method) {
                 "POST" -> builder.post(reqBody).build()
                 else   -> builder.get().build()
@@ -387,17 +386,19 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 try {
                     val serverUrl = prefs.getString("server_url", "") ?: ""
                     val cookie = prefs.getString("session_cookie", "") ?: ""
+                    val csrfToken = prefs.getString("csrf_token", "") ?: ""
                     if (serverUrl.isNotEmpty()) {
                         val request = Request.Builder()
                             .url("${serverUrl.trimEnd('/')}/auth/logout")
                             .header("Cookie", cookie)
+                            .header("X-CSRF-Token", csrfToken)
                             .post("{}".toRequestBody("application/json".toMediaType()))
                             .build()
                         client.newCall(request).execute()
                     }
                 } catch (_: Exception) {}
             }
-            prefs.edit().remove("session_cookie").apply()
+            prefs.edit().remove("session_cookie").remove("csrf_token").apply()
             startActivity(Intent(this@MainActivity, LoginActivity::class.java))
             finish()
         }

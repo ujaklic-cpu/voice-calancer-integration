@@ -131,11 +131,18 @@ class LoginActivity : AppCompatActivity() {
             btnLogin.isEnabled = true
             val (success, cookie, errorBody) = result
             if (success) {
-                // Persist server URL and session cookie
+                val parsedBody = try { org.json.JSONObject(errorBody) } catch (e: Exception) { null }
+                val csrfToken = parsedBody?.optString("csrfToken") ?: ""
+                // Persist server URL, session cookie, and CSRF token
                 prefs.edit()
                     .putString("server_url", serverUrl)
                     .putString("session_cookie", cookie ?: "")
+                    .putString("csrf_token", csrfToken)
                     .apply()
+                // If no CSRF token in login response, fetch it explicitly
+                if (csrfToken.isEmpty()) {
+                    fetchAndStoreCsrfToken(serverUrl, cookie ?: "")
+                }
                 goToMain()
             } else {
                 try {
@@ -151,6 +158,29 @@ class LoginActivity : AppCompatActivity() {
     private fun showError(msg: String) {
         tvError.text = msg
         tvError.visibility = View.VISIBLE
+    }
+
+    private fun fetchAndStoreCsrfToken(serverUrl: String, cookie: String) {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val request = Request.Builder()
+                        .url("${serverUrl.trimEnd('/')}/auth/csrf-token")
+                        .header("Cookie", cookie)
+                        .get()
+                        .build()
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: return@withContext
+                        val json = JSONObject(body)
+                        val token = json.optString("csrfToken")
+                        if (token.isNotEmpty()) {
+                            prefs.edit().putString("csrf_token", token).apply()
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun goToMain() {

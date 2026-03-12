@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Allows cleartext HTTP for local/LAN server connections during development.
-     For production, use HTTPS and remove the cleartextTrafficPermitted attribute. -->
+<!-- Production: only HTTPS is allowed. -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

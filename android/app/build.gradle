@@ -49,6 +49,4 @@ dependencies {
     implementation 'org.json:json:20240303'
     // Preferences (for storing server URL)
     implementation 'androidx.preference:preference-ktx:1.2.1'
-    // Security / EncryptedSharedPreferences
-    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
 }
