@@ -75,6 +75,16 @@ const COQUI_TTS_URL = process.env.COQUI_TTS_URL || 'http://coqui-tts:5002';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 // ---------------------------------------------------------------------------
+// Input validation helpers
+// ---------------------------------------------------------------------------
+/** Validates a userId: 1–128 ASCII alphanumeric, dash, underscore, or dot characters. */
+const USER_ID_RE = /^[A-Za-z0-9._-]{1,128}$/;
+
+function isValidUserId(userId) {
+  return typeof userId === 'string' && USER_ID_RE.test(userId);
+}
+
+// ---------------------------------------------------------------------------
 // OAuth2 helpers
 // ---------------------------------------------------------------------------
 function createOAuth2Client() {
@@ -146,6 +156,7 @@ app.post('/api/calendar', async (req, res) => {
 
   const userId = event.userId;
   if (!userId) return res.status(400).json({ error: 'missing userId' });
+  if (!isValidUserId(userId)) return res.status(400).json({ error: 'invalid userId' });
 
   try {
     const auth = await ensureTokens(userId);
@@ -211,6 +222,7 @@ app.post('/api/tts', async (req, res) => {
 app.get('/auth/url', (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'missing userId' });
+  if (!isValidUserId(userId)) return res.status(400).json({ error: 'invalid userId' });
 
   const oAuth2Client = createOAuth2Client();
   const url = oAuth2Client.generateAuthUrl({
@@ -242,13 +254,17 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /health — lightweight liveness probe used by Docker / load balancers
+// ---------------------------------------------------------------------------
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+// ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
 
-let server;
 if (require.main === module) {
-  server = app.listen(PORT, () => logger.info(`server listening on ${PORT}`));
+  app.listen(PORT, () => logger.info(`server listening on ${PORT}`));
 }
 
 module.exports = { app };
