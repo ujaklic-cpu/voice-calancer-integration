@@ -48,6 +48,7 @@ Open `http://localhost:3000/` in your browser.
 
 | Method | Path | Description |
 |---|---|---|
+| `GET` | `/health` | Liveness probe — returns `{"status":"ok"}` |
 | `POST` | `/api/stt` | Audio file → `{ text, language, confidence }` |
 | `POST` | `/api/ai` | `{ text, lang }` → structured event JSON (AJV-validated) |
 | `POST` | `/api/calendar` | Event + `userId` → create Google Calendar event |
@@ -83,8 +84,11 @@ See `.env.example` for the full list. Key variables:
 ```bash
 npm run dev          # nodemon (auto-reload)
 npm test             # Jest unit + integration tests
+npm run lint         # ESLint
 npm run migrate-db   # Apply DB schema
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
 
 ## Security
 
