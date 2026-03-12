@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Calendar Integrator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; color: #2d3748; }
+    .subtitle { color: #718096; margin-bottom: 2rem; font-size: 0.95rem; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 1.25rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #4a5568; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1.2rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: opacity .15s;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: #4299e1; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #3182ce; }
+    .btn-danger  { background: #fc8181; color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #f56565; }
+    .btn-success { background: #68d391; color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #48bb78; }
+    textarea, input {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      resize: vertical;
+    }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+    .status { font-size: 0.85rem; color: #718096; margin-top: 0.5rem; }
+    .status.error { color: #e53e3e; }
+    .status.ok    { color: #38a169; }
+    pre {
+      background: #edf2f7;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      margin-top: 0.5rem;
+    }
+    audio { width: 100%; margin-top: 0.5rem; }
+    label { font-size: 0.85rem; color: #4a5568; margin-bottom: 0.3rem; display: block; }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem; height: 1.5rem;
+      background: #4299e1;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-right: 0.4rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎤 Voice Calendar Integrator</h1>
+  <p class="subtitle">Record voice → AI → Google Calendar event</p>
+
+  <!-- Step 0: Auth -->
+  <div class="card">
+    <h2><span class="step-num">0</span>Google Calendar Auth</h2>
+    <div class="row">
+      <input id="userId" placeholder="Your user ID (e.g. user123)" style="flex:1;margin-bottom:0" />
+      <button class="btn-primary" onclick="startAuth()">Authorize</button>
+    </div>
+    <div id="authStatus" class="status"></div>
+  </div>
+
+  <!-- Step 1: Record Audio -->
+  <div class="card">
+    <h2><span class="step-num">1</span>Record Audio</h2>
+    <div class="row">
+      <button id="recordBtn" class="btn-primary" onclick="toggleRecord()">⏺ Start Recording</button>
+      <span id="recStatus" class="status"></span>
+    </div>
+    <audio id="audioPlayback" controls style="display:none"></audio>
+  </div>
+
+  <!-- Step 2: Speech-to-Text -->
+  <div class="card">
+    <h2><span class="step-num">2</span>Speech → Text</h2>
+    <button class="btn-primary" id="sttBtn" onclick="runStt()" disabled>Transcribe</button>
+    <div id="sttStatus" class="status"></div>
+    <label style="margin-top:.75rem">Transcript (editable):</label>
+    <textarea id="transcript" rows="3" placeholder="Transcript will appear here…"></textarea>
+  </div>
+
+  <!-- Step 3: AI Parsing -->
+  <div class="card">
+    <h2><span class="step-num">3</span>Parse Event with AI</h2>
+    <button class="btn-primary" id="aiBtn" onclick="runAi()" disabled>Parse</button>
+    <div id="aiStatus" class="status"></div>
+    <pre id="aiResult" style="display:none"></pre>
+  </div>
+
+  <!-- Step 4: Confirm & Create Calendar Event -->
+  <div class="card">
+    <h2><span class="step-num">4</span>Confirm &amp; Create Event</h2>
+    <button class="btn-success" id="calBtn" onclick="createEvent()" disabled>Create Calendar Event</button>
+    <div id="calStatus" class="status"></div>
+    <pre id="calResult" style="display:none"></pre>
+  </div>
+
+  <!-- Step 5: TTS Confirmation -->
+  <div class="card">
+    <h2><span class="step-num">5</span>Voice Confirmation (TTS)</h2>
+    <button class="btn-primary" id="ttsBtn" onclick="runTts()" disabled>Speak Confirmation</button>
+    <div id="ttsStatus" class="status"></div>
+    <audio id="ttsAudio" controls style="display:none"></audio>
+  </div>
+
+  <script>
+    let mediaRecorder, audioChunks = [], audioBlob = null, parsedEvent = null, createdEvent = null;
+
+    function setStatus(id, msg, type) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    // ---- Auth ----
+    function startAuth() {
+      const userId = document.getElementById('userId').value.trim();
+      if (!userId) { setStatus('authStatus', 'Please enter a user ID.', 'error'); return; }
+      window.open(`/auth/url?userId=${encodeURIComponent(userId)}`, '_blank');
+      setStatus('authStatus', 'OAuth window opened. Complete auth then return here.', 'ok');
+    }
+
+    // ---- Recording ----
+    async function toggleRecord() {
+      const btn = document.getElementById('recordBtn');
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        btn.textContent = '⏺ Start Recording';
+        btn.className = 'btn-primary';
+        return;
+      }
+      audioChunks = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(audioBlob);
+        const ap = document.getElementById('audioPlayback');
+        ap.src = url; ap.style.display = 'block';
+        document.getElementById('sttBtn').disabled = false;
+        setStatus('recStatus', 'Recording saved. Click Transcribe.', 'ok');
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      btn.textContent = '⏹ Stop Recording';
+      btn.className = 'btn-danger';
+      setStatus('recStatus', 'Recording…', '');
+    }
+
+    // ---- STT ----
+    async function runStt() {
+      if (!audioBlob) return;
+      setStatus('sttStatus', 'Transcribing…', '');
+      document.getElementById('sttBtn').disabled = true;
+      try {
+        const fd = new FormData();
+        fd.append('audio', audioBlob, 'recording.webm');
+        const res = await fetch('/api/stt', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        document.getElementById('transcript').value = data.text || '';
+        setStatus('sttStatus', `Language: ${data.language || '?'}, Confidence: ${data.confidence || '?'}`, 'ok');
+        document.getElementById('aiBtn').disabled = false;
+      } catch (e) {
+        setStatus('sttStatus', 'STT error: ' + e.message, 'error');
+      } finally {
+        document.getElementById('sttBtn').disabled = false;
+      }
+    }
+
+    // ---- AI ----
+    async function runAi() {
+      const text = document.getElementById('transcript').value.trim();
+      if (!text) { setStatus('aiStatus', 'Enter a transcript first.', 'error'); return; }
+      setStatus('aiStatus', 'Parsing with AI…', '');
+      document.getElementById('aiBtn').disabled = true;
+      try {
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        parsedEvent = data;
+        const pre = document.getElementById('aiResult');
+        pre.textContent = JSON.stringify(data, null, 2);
+        pre.style.display = 'block';
+        setStatus('aiStatus', 'Event parsed successfully.', 'ok');
+        document.getElementById('calBtn').disabled = false;
+      } catch (e) {
+        setStatus('aiStatus', 'AI error: ' + e.message, 'error');
+      } finally {
+        document.getElementById('aiBtn').disabled = false;
+      }
+    }
+
+    // ---- Calendar ----
+    async function createEvent() {
+      if (!parsedEvent) return;
+      const userId = document.getElementById('userId').value.trim();
+      if (!userId) { setStatus('calStatus', 'Enter your user ID (Step 0).', 'error'); return; }
+      setStatus('calStatus', 'Creating calendar event…', '');
+      document.getElementById('calBtn').disabled = true;
+      try {
+        const res = await fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...parsedEvent, userId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        createdEvent = data.created;
+        const pre = document.getElementById('calResult');
+        pre.textContent = JSON.stringify(data, null, 2);
+        pre.style.display = 'block';
+        setStatus('calStatus', 'Event created! ID: ' + (createdEvent.id || '?'), 'ok');
+        document.getElementById('ttsBtn').disabled = false;
+      } catch (e) {
+        setStatus('calStatus', 'Calendar error: ' + e.message, 'error');
+        document.getElementById('calBtn').disabled = false;
+      }
+    }
+
+    // ---- TTS ----
+    async function runTts() {
+      if (!createdEvent) return;
+      const title = createdEvent?.summary || parsedEvent?.title || 'your event';
+      const text = `Your event "${title}" has been added to Google Calendar.`;
+      setStatus('ttsStatus', 'Generating audio…', '');
+      document.getElementById('ttsBtn').disabled = true;
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, lang: parsedEvent?.language || 'en' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        const ttsAudio = document.getElementById('ttsAudio');
+        ttsAudio.src = `data:${data.mimeType};base64,${data.audioBase64}`;
+        ttsAudio.style.display = 'block';
+        ttsAudio.play();
+        setStatus('ttsStatus', 'Playing confirmation audio.', 'ok');
+      } catch (e) {
+        setStatus('ttsStatus', 'TTS error: ' + e.message, 'error');
+      } finally {
+        document.getElementById('ttsBtn').disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

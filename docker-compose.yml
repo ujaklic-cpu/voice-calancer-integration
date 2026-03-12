@@ -9,23 +9,24 @@ services:
       - NODE_ENV=development
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - BASE_URL=${BASE_URL:-http://localhost:3000}
       - COQUI_TTS_URL=http://coqui-tts:5002
       - WHISPER_URL=http://whisper:9001
+      - TOKENS_DB_PATH=/data/tokens.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - COPILOT_TIMEOUT_MS=${COPILOT_TIMEOUT_MS:-30000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - app-data:/data
     depends_on:
-      - ai-adapter
       - whisper
       - coqui-tts
-
-  ai-adapter:
-    build:
-      context: .
-      dockerfile: Dockerfile.ai-adapter
-    image: ai-adapter:local
-    # If you prefer to mount host copilot credentials instead of installing in image:
-    # volumes:
-    #   - /home/you/.config/copilot:/root/.config/copilot:ro
-    depends_on:
-      - whisper
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   whisper:
     # Placeholder image for a Whisper HTTP service. Replace with the server image you choose.
@@ -38,3 +39,7 @@ services:
     image: coqui/tts:latest
     ports:
       - "5002:5002"
+
+volumes:
+  app-data:
+
