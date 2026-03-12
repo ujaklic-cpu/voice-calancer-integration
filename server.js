@@ -1,4 +1,6 @@
 // server.js — Express server wiring the main endpoints:
+//   POST /auth/login    — UI login (username + password)
+//   GET  /auth/logout   — UI logout
 //   POST /api/stt       — audio → Whisper STT service
 //   POST /api/ai        — text → AI adapter → structured event JSON (AJV-validated)
 //   POST /api/calendar  — event + userId → Google Calendar
@@ -15,6 +17,8 @@ const bodyParser = require('body-parser');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const winston = require('winston');
 const { google } = require('googleapis');
@@ -44,6 +48,47 @@ app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(bodyParser.json({ limit: '10mb' }));
 
+// ---------------------------------------------------------------------------
+// Session
+// ---------------------------------------------------------------------------
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000  // 24 hours
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// UI Auth helpers
+// ---------------------------------------------------------------------------
+const UI_USERNAME = process.env.UI_USERNAME || '';
+const UI_PASSWORD = process.env.UI_PASSWORD || '';
+const AUTH_ENABLED = UI_USERNAME !== '' && UI_PASSWORD !== '';
+
+function requireAuth(req, res, next) {
+  if (!AUTH_ENABLED) return next();
+  if (req.session && req.session.authenticated) return next();
+  return res.status(401).json({ error: 'authentication required' });
+}
+
+function safeEqual(a, b) {
+  // Constant-time comparison to resist timing attacks
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Still perform a comparison to take constant time
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 // Serve frontend static files
 app.use(express.static('public'));
 
@@ -66,6 +111,43 @@ const authLimiter = rateLimit({
 
 app.use('/api/', apiLimiter);
 app.use('/auth/', authLimiter);
+
+// Apply auth check to all API endpoints and OAuth endpoints
+app.use('/api/', requireAuth);
+app.use('/auth/url', requireAuth);
+app.use('/auth/callback', requireAuth);
+
+// ---------------------------------------------------------------------------
+// POST /auth/login  — exchange username+password for a session
+// ---------------------------------------------------------------------------
+app.post('/auth/login', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ success: true, authEnabled: false });
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+  if (!safeEqual(username, UI_USERNAME) || !safeEqual(password, UI_PASSWORD)) {
+    logger.warn('Failed login attempt');
+    return res.status(401).json({ error: 'invalid credentials' });
+  }
+  req.session.authenticated = true;
+  return res.json({ success: true });
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/logout  — destroy session
+// ---------------------------------------------------------------------------
+app.post('/auth/logout', (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
+});
+
+// ---------------------------------------------------------------------------
+// GET /auth/status  — check if session is active
+// ---------------------------------------------------------------------------
+app.get('/auth/status', (req, res) => {
+  const authenticated = !AUTH_ENABLED || !!(req.session && req.session.authenticated);
+  return res.json({ authenticated, authEnabled: AUTH_ENABLED });
+});
 
 // ---------------------------------------------------------------------------
 // Config

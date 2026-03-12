@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C1C1C">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Voice Calendar"
+                android:textSize="18sp"
+                android:textColor="#E8E8E8" />
+
+            <Button
+                android:id="@+id/btnSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Settings"
+                android:textSize="12sp"
+                android:backgroundTint="#323232"
+                android:textColor="#999999"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btnSignOut"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sign out"
+                android:textSize="12sp"
+                android:backgroundTint="#323232"
+                android:textColor="#999999"
+                android:layout_marginStart="8dp"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <!-- Header bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#2B2B2B"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="GOOGLE CALENDAR AUTH"
+                android:textSize="10sp"
+                android:textColor="#999999"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <EditText
+                android:id="@+id/etGoogleUserId"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Google user ID (e.g. user123)"
+                android:textColor="#E8E8E8"
+                android:textColorHint="#666666"
+                android:background="@drawable/input_bg"
+                android:padding="10dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnAuthorize"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Authorize"
+                android:backgroundTint="#0078D7"
+                android:textColor="#FFFFFF"
+                android:stateListAnimator="@null" />
+
+            <TextView
+                android:id="@+id/tvAuthStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#999999"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- Step 1: Input -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#2B2B2B"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="INPUT"
+                android:textSize="10sp"
+                android:textColor="#999999"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Mode toggle -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <Button
+                    android:id="@+id/btnModeVoice"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Voice"
+                    android:textSize="12sp"
+                    android:backgroundTint="#0078D7"
+                    android:textColor="#FFFFFF"
+                    android:stateListAnimator="@null" />
+
+                <Button
+                    android:id="@+id/btnModeType"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Type"
+                    android:textSize="12sp"
+                    android:backgroundTint="#323232"
+                    android:textColor="#999999"
+                    android:layout_marginStart="4dp"
+                    android:stateListAnimator="@null" />
+            </LinearLayout>
+
+            <!-- Voice panel -->
+            <LinearLayout
+                android:id="@+id/panelVoice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/btnRecord"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Start Recording"
+                        android:backgroundTint="#0078D7"
+                        android:textColor="#FFFFFF"
+                        android:stateListAnimator="@null" />
+
+                    <TextView
+                        android:id="@+id/tvRecStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textColor="#999999"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/btnTranscribe"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Transcribe"
+                        android:backgroundTint="#0078D7"
+                        android:textColor="#FFFFFF"
+                        android:enabled="false"
+                        android:stateListAnimator="@null" />
+
+                    <TextView
+                        android:id="@+id/tvSttStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="12sp"
+                        android:textColor="#999999"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Text panel -->
+            <LinearLayout
+                android:id="@+id/panelText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <EditText
+                    android:id="@+id/etDirectInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Type your event description here…"
+                    android:textColor="#E8E8E8"
+                    android:textColorHint="#666666"
+                    android:background="@drawable/input_bg"
+                    android:padding="10dp"
+                    android:minLines="3"
+                    android:gravity="top"
+                    android:inputType="textMultiLine"
+                    android:layout_marginBottom="8dp" />
+            </LinearLayout>
+
+            <!-- Transcript (shared) -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Transcript (editable)"
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:layout_marginBottom="4dp"
+                android:layout_marginTop="4dp" />
+
+            <EditText
+                android:id="@+id/etTranscript"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Transcript will appear here"
+                android:textColor="#E8E8E8"
+                android:textColorHint="#666666"
+                android:background="@drawable/input_bg"
+                android:padding="10dp"
+                android:minLines="2"
+                android:gravity="top"
+                android:inputType="textMultiLine"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/btnParse"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Parse with AI"
+                    android:backgroundTint="#0078D7"
+                    android:textColor="#FFFFFF"
+                    android:enabled="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:id="@+id/tvAiStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:textColor="#999999"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Step 2: Confirm and Create -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#2B2B2B"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="CONFIRM AND CREATE EVENT"
+                android:textSize="10sp"
+                android:textColor="#999999"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/tvParsedResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#C8C8C8"
+                android:fontFamily="monospace"
+                android:background="#141414"
+                android:padding="8dp"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/btnCreate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Create Calendar Event"
+                    android:backgroundTint="#107C10"
+                    android:textColor="#FFFFFF"
+                    android:enabled="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:id="@+id/tvCalStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:textColor="#999999"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Step 3: TTS Confirmation -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#2B2B2B"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="VOICE CONFIRMATION"
+                android:textSize="10sp"
+                android:textColor="#999999"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/btnSpeak"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Speak Confirmation"
+                    android:backgroundTint="#0078D7"
+                    android:textColor="#FFFFFF"
+                    android:enabled="false"
+                    android:stateListAnimator="@null" />
+
+                <TextView
+                    android:id="@+id/tvTtsStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="12sp"
+                    android:textColor="#999999"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
