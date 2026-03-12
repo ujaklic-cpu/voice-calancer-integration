@@ -1,0 +1,26 @@
+<resources>
+    <!-- Dark theme matching Windows 10 start menu aesthetic -->
+    <style name="Theme.VoiceCalendar" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#0078D7</item>
+        <item name="colorPrimaryVariant">#005A9E</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#0078D7</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="android:colorBackground">#1C1C1C</item>
+        <item name="colorSurface">#2B2B2B</item>
+        <item name="colorOnSurface">#E8E8E8</item>
+        <item name="colorOnBackground">#E8E8E8</item>
+        <item name="android:windowBackground">#1C1C1C</item>
+        <item name="android:textColorPrimary">#E8E8E8</item>
+        <item name="android:textColorSecondary">#999999</item>
+        <item name="colorError">#D83B01</item>
+        <!-- No action bar on login screen -->
+        <item name="windowActionBar">true</item>
+        <item name="windowNoTitle">false</item>
+    </style>
+
+    <style name="Theme.VoiceCalendar.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>

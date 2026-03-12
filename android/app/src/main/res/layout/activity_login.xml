@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C1C1C"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Voice Calendar"
+            android:textSize="22sp"
+            android:textColor="#E8E8E8"
+            android:textStyle="normal"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sign in to continue"
+            android:textSize="13sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Server URL -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Server URL"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/etServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textUri"
+            android:hint="https://your-server.example.com"
+            android:textColor="#E8E8E8"
+            android:textColorHint="#666666"
+            android:background="@drawable/input_bg"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Username -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Username"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/etUsername"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:hint="username"
+            android:textColor="#E8E8E8"
+            android:textColorHint="#666666"
+            android:background="@drawable/input_bg"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Password -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Password"
+            android:textSize="12sp"
+            android:textColor="#999999"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textPassword"
+            android:hint="password"
+            android:textColor="#E8E8E8"
+            android:textColorHint="#666666"
+            android:background="@drawable/input_bg"
+            android:padding="12dp"
+            android:imeOptions="actionDone"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvLoginError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#F1707A"
+            android:textSize="12sp"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sign in"
+            android:backgroundTint="#0078D7"
+            android:textColor="#FFFFFF"
+            android:stateListAnimator="@null" />
+
+    </LinearLayout>
+</ScrollView>

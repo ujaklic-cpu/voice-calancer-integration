@@ -6,154 +6,418 @@
   <title>Voice Calendar Integrator</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1c1c1c;
+      --surface:   #2b2b2b;
+      --surface2:  #323232;
+      --border:    #3a3a3a;
+      --accent:    #0078d7;
+      --accent-hv: #1083e0;
+      --text:      #e8e8e8;
+      --text-dim:  #999;
+      --danger:    #d83b01;
+      --success:   #107c10;
+      --radius:    2px;
+    }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f0f4f8;
-      color: #1a202c;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2rem 1rem;
+      padding: 1.5rem 1rem 3rem;
     }
-    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; color: #2d3748; }
-    .subtitle { color: #718096; margin-bottom: 2rem; font-size: 0.95rem; }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 400;
+      letter-spacing: 0.03em;
+      margin-bottom: 0.2rem;
+      color: var(--text);
+    }
+
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      margin-bottom: 1.75rem;
+      letter-spacing: 0.02em;
+    }
+
     .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 1.5rem 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
       width: 100%;
-      max-width: 600px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      margin-bottom: 1.25rem;
+      max-width: 560px;
+      margin-bottom: 1rem;
     }
-    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #4a5568; }
+
+    .card h2 {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    .card h2 .step {
+      display: inline-block;
+      width: 1.3rem;
+      height: 1.3rem;
+      line-height: 1.3rem;
+      text-align: center;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 1px;
+      margin-right: 0.4rem;
+      vertical-align: middle;
+    }
+
     button {
       cursor: pointer;
       border: none;
-      border-radius: 8px;
-      padding: 0.55rem 1.2rem;
-      font-size: 0.95rem;
+      border-radius: var(--radius);
+      padding: 0.45rem 1.1rem;
+      font-size: 0.82rem;
+      font-family: inherit;
       font-weight: 600;
-      transition: opacity .15s;
+      transition: background .1s, opacity .1s;
     }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-primary { background: #4299e1; color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: #3182ce; }
-    .btn-danger  { background: #fc8181; color: #fff; }
-    .btn-danger:hover:not(:disabled) { background: #f56565; }
-    .btn-success { background: #68d391; color: #fff; }
-    .btn-success:hover:not(:disabled) { background: #48bb78; }
-    textarea, input {
+
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary  { background: var(--accent);  color: #fff; }
+    .btn-primary:hover:not(:disabled)  { background: var(--accent-hv); }
+    .btn-danger   { background: var(--danger);  color: #fff; }
+    .btn-danger:hover:not(:disabled)   { background: #e54512; }
+    .btn-success  { background: var(--success); color: #fff; }
+    .btn-success:hover:not(:disabled)  { background: #128d12; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+
+    input, textarea {
       width: 100%;
-      padding: 0.6rem 0.8rem;
-      border: 1px solid #cbd5e0;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      margin-bottom: 0.75rem;
+      padding: 0.5rem 0.7rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      margin-bottom: 0.6rem;
       resize: vertical;
     }
-    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
-    .status { font-size: 0.85rem; color: #718096; margin-top: 0.5rem; }
-    .status.error { color: #e53e3e; }
-    .status.ok    { color: #38a169; }
+
+    input::placeholder, textarea::placeholder { color: var(--text-dim); }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+
+    .status {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 0.45rem;
+    }
+    .status.error { color: #f1707a; }
+    .status.ok    { color: #6ccb5f; }
+
     pre {
-      background: #edf2f7;
-      border-radius: 6px;
-      padding: 0.75rem;
-      font-size: 0.78rem;
+      background: #141414;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.7rem;
+      font-size: 0.76rem;
       overflow-x: auto;
       white-space: pre-wrap;
       margin-top: 0.5rem;
+      color: #c8c8c8;
     }
-    audio { width: 100%; margin-top: 0.5rem; }
-    label { font-size: 0.85rem; color: #4a5568; margin-bottom: 0.3rem; display: block; }
-    .step-num {
-      display: inline-flex;
+
+    audio { width: 100%; margin-top: 0.5rem; filter: invert(1) hue-rotate(180deg); }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+
+    /* Login overlay */
+    #loginOverlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 1.5rem; height: 1.5rem;
-      background: #4299e1;
-      color: #fff;
-      border-radius: 50%;
+      z-index: 100;
+    }
+
+    #loginBox {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 2.5rem;
+      width: 320px;
+    }
+
+    #loginBox h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      color: var(--text);
+    }
+
+    .input-mode-toggle {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .input-mode-toggle button {
+      flex: 1;
+      border-radius: 0;
       font-size: 0.8rem;
-      font-weight: 700;
-      margin-right: 0.4rem;
+      padding: 0.4rem 0.6rem;
+      background: var(--surface2);
+      color: var(--text-dim);
+    }
+
+    .input-mode-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .input-mode-toggle button:hover:not(.active):not(:disabled) {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    #main { display: none; flex-direction: column; align-items: center; width: 100%; }
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 560px;
+      margin-bottom: 1.25rem;
     }
   </style>
 </head>
 <body>
-  <h1>🎤 Voice Calendar Integrator</h1>
-  <p class="subtitle">Record voice → AI → Google Calendar event</p>
 
-  <!-- Step 0: Auth -->
-  <div class="card">
-    <h2><span class="step-num">0</span>Google Calendar Auth</h2>
-    <div class="row">
-      <input id="userId" placeholder="Your user ID (e.g. user123)" style="flex:1;margin-bottom:0" />
-      <button class="btn-primary" onclick="startAuth()">Authorize</button>
+  <!-- Login overlay -->
+  <div id="loginOverlay">
+    <div id="loginBox">
+      <h2>Voice Calendar Integrator</h2>
+      <label for="loginUser">Username</label>
+      <input id="loginUser" type="text" autocomplete="username" />
+      <label for="loginPass">Password</label>
+      <input id="loginPass" type="password" autocomplete="current-password" />
+      <div id="loginErr" class="status error" style="margin-bottom:0.5rem;min-height:1.2em"></div>
+      <button class="btn-primary" style="width:100%" onclick="doLogin()">Sign in</button>
     </div>
-    <div id="authStatus" class="status"></div>
   </div>
 
-  <!-- Step 1: Record Audio -->
-  <div class="card">
-    <h2><span class="step-num">1</span>Record Audio</h2>
-    <div class="row">
-      <button id="recordBtn" class="btn-primary" onclick="toggleRecord()">⏺ Start Recording</button>
-      <span id="recStatus" class="status"></span>
+  <!-- Main app -->
+  <div id="main">
+    <div class="header-bar">
+      <div>
+        <h1>Voice Calendar Integrator</h1>
+        <p class="subtitle">Voice or text &rarr; AI &rarr; Google Calendar</p>
+      </div>
+      <button class="btn-ghost" id="logoutBtn" onclick="doLogout()" style="display:none">Sign out</button>
     </div>
-    <audio id="audioPlayback" controls style="display:none"></audio>
-  </div>
 
-  <!-- Step 2: Speech-to-Text -->
-  <div class="card">
-    <h2><span class="step-num">2</span>Speech → Text</h2>
-    <button class="btn-primary" id="sttBtn" onclick="runStt()" disabled>Transcribe</button>
-    <div id="sttStatus" class="status"></div>
-    <label style="margin-top:.75rem">Transcript (editable):</label>
-    <textarea id="transcript" rows="3" placeholder="Transcript will appear here…"></textarea>
-  </div>
+    <!-- Step 0: Google Auth -->
+    <div class="card">
+      <h2><span class="step">0</span>Google Calendar Auth</h2>
+      <div class="row">
+        <input id="userId" placeholder="Google user ID (e.g. user123)" style="flex:1;margin-bottom:0" />
+        <button class="btn-primary" onclick="startAuth()">Authorize</button>
+      </div>
+      <div id="authStatus" class="status"></div>
+    </div>
 
-  <!-- Step 3: AI Parsing -->
-  <div class="card">
-    <h2><span class="step-num">3</span>Parse Event with AI</h2>
-    <button class="btn-primary" id="aiBtn" onclick="runAi()" disabled>Parse</button>
-    <div id="aiStatus" class="status"></div>
-    <pre id="aiResult" style="display:none"></pre>
-  </div>
+    <!-- Step 1: Input (voice or text) -->
+    <div class="card">
+      <h2><span class="step">1</span>Input</h2>
+      <div class="input-mode-toggle">
+        <button id="modeVoice" class="active" onclick="setMode('voice')">Voice</button>
+        <button id="modeText" onclick="setMode('text')">Type</button>
+      </div>
 
-  <!-- Step 4: Confirm & Create Calendar Event -->
-  <div class="card">
-    <h2><span class="step-num">4</span>Confirm &amp; Create Event</h2>
-    <button class="btn-success" id="calBtn" onclick="createEvent()" disabled>Create Calendar Event</button>
-    <div id="calStatus" class="status"></div>
-    <pre id="calResult" style="display:none"></pre>
-  </div>
+      <!-- Voice mode -->
+      <div id="voicePanel">
+        <div class="row">
+          <button id="recordBtn" class="btn-primary" onclick="toggleRecord()">Start Recording</button>
+          <span id="recStatus" class="status"></span>
+        </div>
+        <audio id="audioPlayback" controls style="display:none"></audio>
+        <div class="row" style="margin-top:0.75rem">
+          <button class="btn-primary" id="sttBtn" onclick="runStt()" disabled>Transcribe</button>
+          <span id="sttStatus" class="status"></span>
+        </div>
+      </div>
 
-  <!-- Step 5: TTS Confirmation -->
-  <div class="card">
-    <h2><span class="step-num">5</span>Voice Confirmation (TTS)</h2>
-    <button class="btn-primary" id="ttsBtn" onclick="runTts()" disabled>Speak Confirmation</button>
-    <div id="ttsStatus" class="status"></div>
-    <audio id="ttsAudio" controls style="display:none"></audio>
+      <!-- Text mode -->
+      <div id="textPanel" style="display:none">
+        <label>Type your event description:</label>
+        <textarea id="directText" rows="3" placeholder="e.g. Meeting with Ana tomorrow at 10am for 1 hour"></textarea>
+      </div>
+
+      <label style="margin-top:0.75rem">Transcript (editable):</label>
+      <textarea id="transcript" rows="2" placeholder="Transcript will appear here — or type your text above"></textarea>
+      <div class="row">
+        <button class="btn-primary" id="aiBtn" onclick="runAi()" disabled>Parse with AI</button>
+        <span id="aiStatus" class="status"></span>
+      </div>
+    </div>
+
+    <!-- Step 2: Confirm & Create -->
+    <div class="card">
+      <h2><span class="step">2</span>Confirm and Create Event</h2>
+      <pre id="aiResult" style="display:none"></pre>
+      <div class="row" style="margin-top:0.5rem">
+        <button class="btn-success" id="calBtn" onclick="createEvent()" disabled>Create Calendar Event</button>
+        <span id="calStatus" class="status"></span>
+      </div>
+      <pre id="calResult" style="display:none"></pre>
+    </div>
+
+    <!-- Step 3: TTS Confirmation -->
+    <div class="card">
+      <h2><span class="step">3</span>Voice Confirmation</h2>
+      <div class="row">
+        <button class="btn-primary" id="ttsBtn" onclick="runTts()" disabled>Speak Confirmation</button>
+        <span id="ttsStatus" class="status"></span>
+      </div>
+      <audio id="ttsAudio" controls style="display:none"></audio>
+    </div>
   </div>
 
   <script>
     let mediaRecorder, audioChunks = [], audioBlob = null, parsedEvent = null, createdEvent = null;
+    let inputMode = 'voice';
+    let csrfToken = '';
 
+    // ---- Bootstrap ----
+    (async function init() {
+      try {
+        const r = await fetch('/auth/status');
+        const d = await r.json();
+        if (d.authenticated) {
+          await fetchCsrfToken();
+          showMain(d.authEnabled);
+        } else {
+          document.getElementById('loginOverlay').style.display = 'flex';
+        }
+      } catch (_) {
+        document.getElementById('loginOverlay').style.display = 'flex';
+      }
+    })();
+
+    async function fetchCsrfToken() {
+      try {
+        const r = await fetch('/auth/csrf-token');
+        const d = await r.json();
+        csrfToken = d.csrfToken || '';
+      } catch (_) {
+        csrfToken = '';
+      }
+    }
+
+    function showMain(authEnabled) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('main').style.display = 'flex';
+      if (authEnabled) document.getElementById('logoutBtn').style.display = '';
+    }
+
+    function postHeaders() {
+      return { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken };
+    }
+
+    // ---- Login ----
+    document.getElementById('loginPass').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    async function doLogin() {
+      const username = document.getElementById('loginUser').value.trim();
+      const password = document.getElementById('loginPass').value;
+      const errEl = document.getElementById('loginErr');
+      errEl.textContent = '';
+      if (!username || !password) { errEl.textContent = 'Enter username and password.'; return; }
+      try {
+        const r = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const d = await r.json();
+        if (!r.ok) { errEl.textContent = d.error || 'Login failed.'; return; }
+        // Server returns a CSRF token in the login response
+        csrfToken = d.csrfToken || '';
+        if (!csrfToken) await fetchCsrfToken();
+        showMain(true);
+      } catch (e) {
+        errEl.textContent = 'Network error.';
+      }
+    }
+
+    async function doLogout() {
+      await fetch('/auth/logout', { method: 'POST', headers: postHeaders() });
+      location.reload();
+    }
+
+    // ---- Input mode toggle ----
+    function setMode(mode) {
+      inputMode = mode;
+      document.getElementById('modeVoice').classList.toggle('active', mode === 'voice');
+      document.getElementById('modeText').classList.toggle('active', mode === 'text');
+      document.getElementById('voicePanel').style.display = mode === 'voice' ? '' : 'none';
+      document.getElementById('textPanel').style.display = mode === 'text' ? '' : 'none';
+      if (mode === 'text') {
+        document.getElementById('aiBtn').disabled = false;
+      }
+    }
+
+    document.getElementById('directText').addEventListener('input', function() {
+      document.getElementById('transcript').value = this.value;
+      document.getElementById('aiBtn').disabled = this.value.trim() === '';
+    });
+
+    // ---- Status helpers ----
     function setStatus(id, msg, type) {
       const el = document.getElementById(id);
       el.textContent = msg;
       el.className = 'status' + (type ? ' ' + type : '');
     }
 
-    // ---- Auth ----
+    // ---- Auth (Google Calendar) ----
     function startAuth() {
       const userId = document.getElementById('userId').value.trim();
-      if (!userId) { setStatus('authStatus', 'Please enter a user ID.', 'error'); return; }
-      window.open(`/auth/url?userId=${encodeURIComponent(userId)}`, '_blank');
-      setStatus('authStatus', 'OAuth window opened. Complete auth then return here.', 'ok');
+      if (!userId) { setStatus('authStatus', 'Enter a user ID first.', 'error'); return; }
+      window.open('/auth/url?userId=' + encodeURIComponent(userId), '_blank');
+      setStatus('authStatus', 'Complete OAuth in the new tab, then return here.', 'ok');
     }
 
     // ---- Recording ----
@@ -161,7 +425,7 @@
       const btn = document.getElementById('recordBtn');
       if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
-        btn.textContent = '⏺ Start Recording';
+        btn.textContent = 'Start Recording';
         btn.className = 'btn-primary';
         return;
       }
@@ -175,31 +439,31 @@
         const ap = document.getElementById('audioPlayback');
         ap.src = url; ap.style.display = 'block';
         document.getElementById('sttBtn').disabled = false;
-        setStatus('recStatus', 'Recording saved. Click Transcribe.', 'ok');
+        setStatus('recStatus', 'Recording saved.', 'ok');
         stream.getTracks().forEach(t => t.stop());
       };
       mediaRecorder.start();
-      btn.textContent = '⏹ Stop Recording';
+      btn.textContent = 'Stop Recording';
       btn.className = 'btn-danger';
-      setStatus('recStatus', 'Recording…', '');
+      setStatus('recStatus', 'Recording...', '');
     }
 
     // ---- STT ----
     async function runStt() {
       if (!audioBlob) return;
-      setStatus('sttStatus', 'Transcribing…', '');
+      setStatus('sttStatus', 'Transcribing...', '');
       document.getElementById('sttBtn').disabled = true;
       try {
         const fd = new FormData();
         fd.append('audio', audioBlob, 'recording.webm');
-        const res = await fetch('/api/stt', { method: 'POST', body: fd });
+        const res = await fetch('/api/stt', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken }, body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
         document.getElementById('transcript').value = data.text || '';
-        setStatus('sttStatus', `Language: ${data.language || '?'}, Confidence: ${data.confidence || '?'}`, 'ok');
+        setStatus('sttStatus', 'Language: ' + (data.language || '?'), 'ok');
         document.getElementById('aiBtn').disabled = false;
       } catch (e) {
-        setStatus('sttStatus', 'STT error: ' + e.message, 'error');
+        setStatus('sttStatus', 'Error: ' + e.message, 'error');
       } finally {
         document.getElementById('sttBtn').disabled = false;
       }
@@ -208,13 +472,13 @@
     // ---- AI ----
     async function runAi() {
       const text = document.getElementById('transcript').value.trim();
-      if (!text) { setStatus('aiStatus', 'Enter a transcript first.', 'error'); return; }
-      setStatus('aiStatus', 'Parsing with AI…', '');
+      if (!text) { setStatus('aiStatus', 'Enter text first.', 'error'); return; }
+      setStatus('aiStatus', 'Parsing...', '');
       document.getElementById('aiBtn').disabled = true;
       try {
         const res = await fetch('/api/ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: postHeaders(),
           body: JSON.stringify({ text })
         });
         const data = await res.json();
@@ -223,10 +487,10 @@
         const pre = document.getElementById('aiResult');
         pre.textContent = JSON.stringify(data, null, 2);
         pre.style.display = 'block';
-        setStatus('aiStatus', 'Event parsed successfully.', 'ok');
+        setStatus('aiStatus', 'Parsed.', 'ok');
         document.getElementById('calBtn').disabled = false;
       } catch (e) {
-        setStatus('aiStatus', 'AI error: ' + e.message, 'error');
+        setStatus('aiStatus', 'Error: ' + e.message, 'error');
       } finally {
         document.getElementById('aiBtn').disabled = false;
       }
@@ -236,13 +500,13 @@
     async function createEvent() {
       if (!parsedEvent) return;
       const userId = document.getElementById('userId').value.trim();
-      if (!userId) { setStatus('calStatus', 'Enter your user ID (Step 0).', 'error'); return; }
-      setStatus('calStatus', 'Creating calendar event…', '');
+      if (!userId) { setStatus('calStatus', 'Enter your Google user ID (Step 0).', 'error'); return; }
+      setStatus('calStatus', 'Creating event...', '');
       document.getElementById('calBtn').disabled = true;
       try {
         const res = await fetch('/api/calendar', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: postHeaders(),
           body: JSON.stringify({ ...parsedEvent, userId })
         });
         const data = await res.json();
@@ -251,10 +515,10 @@
         const pre = document.getElementById('calResult');
         pre.textContent = JSON.stringify(data, null, 2);
         pre.style.display = 'block';
-        setStatus('calStatus', 'Event created! ID: ' + (createdEvent.id || '?'), 'ok');
+        setStatus('calStatus', 'Event created. ID: ' + (createdEvent.id || '?'), 'ok');
         document.getElementById('ttsBtn').disabled = false;
       } catch (e) {
-        setStatus('calStatus', 'Calendar error: ' + e.message, 'error');
+        setStatus('calStatus', 'Error: ' + e.message, 'error');
         document.getElementById('calBtn').disabled = false;
       }
     }
@@ -263,24 +527,24 @@
     async function runTts() {
       if (!createdEvent) return;
       const title = createdEvent?.summary || parsedEvent?.title || 'your event';
-      const text = `Your event "${title}" has been added to Google Calendar.`;
-      setStatus('ttsStatus', 'Generating audio…', '');
+      const text = 'Your event "' + title + '" has been added to Google Calendar.';
+      setStatus('ttsStatus', 'Generating audio...', '');
       document.getElementById('ttsBtn').disabled = true;
       try {
         const res = await fetch('/api/tts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: postHeaders(),
           body: JSON.stringify({ text, lang: parsedEvent?.language || 'en' })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
         const ttsAudio = document.getElementById('ttsAudio');
-        ttsAudio.src = `data:${data.mimeType};base64,${data.audioBase64}`;
+        ttsAudio.src = 'data:' + data.mimeType + ';base64,' + data.audioBase64;
         ttsAudio.style.display = 'block';
         ttsAudio.play();
-        setStatus('ttsStatus', 'Playing confirmation audio.', 'ok');
+        setStatus('ttsStatus', 'Playing.', 'ok');
       } catch (e) {
-        setStatus('ttsStatus', 'TTS error: ' + e.message, 'error');
+        setStatus('ttsStatus', 'Error: ' + e.message, 'error');
       } finally {
         document.getElementById('ttsBtn').disabled = false;
       }
