@@ -438,7 +438,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun inferInputLanguage(text: String): String {
         val normalized = text.lowercase(Locale.ROOT)
-        val slovenianHints = listOf("sestanek", "jutri", "ob ", "ljubljan")
+        val slovenianHints = listOf("sestanek", "jutri", "ob ", "ljubljani")
         return if (slovenianHints.any { normalized.contains(it) }) "sl-SI" else "en-US"
     }
 
