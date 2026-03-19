@@ -116,10 +116,12 @@ Located in `android/`. Built with Kotlin and the Material Components library.
 ### Features
 
 - **On-device speech recognition** via Android's built-in `SpeechRecognizer` — no Whisper service or VPN needed.
+- **System Voice Assistant registration scaffold** via `VoiceInteractionService` manifest/service declarations.
 - **Text input mode** — type an event description and send it directly to the AI.
 - **Configurable server URL** — point the app at any reachable server (local, LAN, or internet).
 - **Login screen** — authenticates against the server's login wall.
-- **On-device TTS** — speaks the confirmation using Android's `TextToSpeech` engine.
+- **Local multilingual NLP fallback** — app and backend both parse common Slovenian/English meeting utterances without cloud LLM calls.
+- **On-device TTS** — speaks confirmation using Android `TextToSpeech` with `en-US`, `en-GB`, and `sl-SI` locale preference.
 
 ### Build & Install
 
@@ -169,5 +171,15 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR:
 1. Install deps
 2. Run DB migration (non-fatal)
 3. Run Jest tests
-4. Build Docker image (main branch only)
+4. Build Android artifacts (`lint`, debug APK, release AAB)
+5. Build Docker image (main branch only)
 
+## Local Light LLM / model packaging plan
+
+Current implementation includes a deterministic local parser fallback for key Slovenian and English utterance patterns to keep parsing local when possible. For full on-device model inference in production, use this rollout:
+
+1. Add `android:nativeLibs` + model asset packaging for a small quantized model (`~0.5B-1B`) via MediaPipe LLM Inference or llama.cpp Android bindings.
+2. Ship only bootstrap binaries in APK; download language-specific model weights on first launch over HTTPS with checksum verification and resume support.
+3. Store models in app-private storage and expose readiness state through a repository + Flow.
+4. Route parse requests through local inference first; only fall back to server parser when local model is unavailable or confidence is below threshold.
+5. Version models independently from app releases and support in-app model cleanup/migration.

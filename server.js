@@ -24,6 +24,7 @@ const winston = require('winston');
 const { google } = require('googleapis');
 
 const { callCopilotCli } = require('./ai_adapter');
+const { parseLightweightEvent } = require('./light_parser');
 const { saveTokens, loadTokens, saveEvent } = require('./db/tokenStore');
 
 // ---------------------------------------------------------------------------
@@ -260,6 +261,12 @@ app.post('/api/stt', upload.single('audio'), async (req, res) => {
 app.post('/api/ai', async (req, res) => {
   const { text, lang } = req.body;
   if (!text) return res.status(400).json({ error: 'missing text' });
+
+  const localParsed = parseLightweightEvent(text, lang || 'und');
+  if (localParsed) {
+    return res.json(localParsed);
+  }
+
   try {
     const parsed = await callCopilotCli(text, lang || 'und');
     return res.json(parsed);
