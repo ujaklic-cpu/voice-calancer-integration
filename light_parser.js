@@ -96,7 +96,7 @@ function parseLightweightEvent(text, lang = 'und') {
     return parseEnglish(text, normalizedLang);
   }
 
-  // For undetermined language, prefer Slovenian first because the primary
+  // For undetermined language ('und'), prefer Slovenian first because the primary
   // target utterance set includes Slovenian examples, then fall back to English.
   return parseSlovenian(text) || parseEnglish(text);
 }
