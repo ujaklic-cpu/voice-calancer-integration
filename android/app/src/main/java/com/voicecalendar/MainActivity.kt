@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.voicecalendar.nlp.LocalEventParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,6 +36,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var ttsReady = false
     private var parsedEvent: JSONObject? = null
     private var createdEventTitle: String? = null
+    private var parsedEventLanguage: String = "en-US"
     private var inputMode = "voice"
 
     private val client = OkHttpClient.Builder()
@@ -271,13 +273,32 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvAiStatus.setTextColor(getColor(R.color.text_dim))
         btnParse.isEnabled = false
 
+        val lang = inferInputLanguage(text)
+        val localParsed = LocalEventParser.parse(text, lang)
+        if (localParsed != null) {
+            parsedEvent = localParsed
+            parsedEventLanguage = localParsed.optString("language", lang)
+            tvParsedResult.text = localParsed.toString()
+            tvParsedResult.visibility = View.VISIBLE
+            btnCreate.isEnabled = true
+            tvAiStatus.text = "Parsed locally."
+            tvAiStatus.setTextColor(getColor(R.color.text_ok))
+            btnParse.isEnabled = true
+            return
+        }
+
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) { callApi("POST", "/api/ai", """{"text":${JSONObject.quote(text)}}""") }
+            val payload = JSONObject().apply {
+                put("text", text)
+                put("lang", lang)
+            }.toString()
+            val result = withContext(Dispatchers.IO) { callApi("POST", "/api/ai", payload) }
             btnParse.isEnabled = true
             if (result.first) {
                 val json = try { JSONObject(result.second) } catch (e: Exception) { null }
                 if (json != null) {
                     parsedEvent = json
+                    parsedEventLanguage = json.optString("language", lang)
                     tvParsedResult.text = result.second
                     tvParsedResult.visibility = View.VISIBLE
                     btnCreate.isEnabled = true
@@ -337,10 +358,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     // ---------------------------------------------------------------------------
     private fun speakConfirmation() {
         val title = createdEventTitle ?: "your event"
-        val text = "Your event \"$title\" has been added to Google Calendar."
+        val requestedLang = parsedEventLanguage
+        val locale = resolveTtsLocale(requestedLang)
+        val text = if (locale.language == "sl") {
+            "Dogodek \"$title\" je dodan v Google Koledar."
+        } else {
+            "Your event \"$title\" has been added to Google Calendar."
+        }
         tvTtsStatus.text = "Speaking…"
         tvTtsStatus.setTextColor(getColor(R.color.text_dim))
         if (ttsReady) {
+            tts.language = locale
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "confirm")
             tvTtsStatus.text = "Done."
             tvTtsStatus.setTextColor(getColor(R.color.text_ok))
@@ -406,9 +434,31 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            tts.language = Locale.getDefault()
+            tts.language = resolveTtsLocale(Locale.getDefault().toLanguageTag())
             ttsReady = true
         }
+    }
+
+    private fun inferInputLanguage(text: String): String {
+        val normalized = text.lowercase(Locale.ROOT)
+        val isLikelySlovenian = Regex("""\bsestanek\b|\bjutri\b|\bob\b|\bljubljani\b""")
+            .containsMatchIn(normalized)
+        return if (isLikelySlovenian) "sl-SI" else "en-US"
+    }
+
+    private fun resolveTtsLocale(languageTag: String): Locale {
+        val normalized = languageTag.lowercase(Locale.ROOT)
+        val preferred = when {
+            normalized.startsWith("sl") -> Locale.forLanguageTag("sl-SI")
+            normalized.startsWith("en-gb") -> Locale.UK
+            else -> Locale.US
+        }
+        val candidates = listOf(preferred, Locale.US, Locale.UK, Locale.forLanguageTag("sl-SI"))
+        for (candidate in candidates) {
+            val availability = tts.isLanguageAvailable(candidate)
+            if (availability >= TextToSpeech.LANG_AVAILABLE) return candidate
+        }
+        return Locale.getDefault()
     }
 
     override fun onDestroy() {

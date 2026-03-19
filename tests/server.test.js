@@ -126,6 +126,18 @@ describe('POST /api/ai', () => {
     expect(res.body.title).toBe('Meeting');
   });
 
+  it('uses local parser for Slovenian utterance without AI adapter call', async () => {
+    callCopilotCli.mockClear();
+    const res = await request(app)
+      .post('/api/ai')
+      .send({ text: 'Sestanek z Urbanom jutri ob devetih v Ljubljani', lang: 'sl' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('Sestanek z Urbanom');
+    expect(res.body.location).toBe('Ljubljani');
+    expect(callCopilotCli).not.toHaveBeenCalled();
+  });
+
   it('returns 502 when AI adapter throws', async () => {
     const err = new Error('AI failed');
     err.rawOutput = 'raw garbage';
