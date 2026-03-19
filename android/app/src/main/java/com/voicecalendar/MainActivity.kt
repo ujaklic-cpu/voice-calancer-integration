@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var ttsReady = false
     private var parsedEvent: JSONObject? = null
     private var createdEventTitle: String? = null
+    private var parsedEventLanguage: String = "en-US"
     private var inputMode = "voice"
 
     private val client = OkHttpClient.Builder()
@@ -276,6 +277,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val localParsed = LocalEventParser.parse(text, lang)
         if (localParsed != null) {
             parsedEvent = localParsed
+            parsedEventLanguage = localParsed.optString("language", lang)
             tvParsedResult.text = localParsed.toString()
             tvParsedResult.visibility = View.VISIBLE
             btnCreate.isEnabled = true
@@ -296,6 +298,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val json = try { JSONObject(result.second) } catch (e: Exception) { null }
                 if (json != null) {
                     parsedEvent = json
+                    parsedEventLanguage = json.optString("language", lang)
                     tvParsedResult.text = result.second
                     tvParsedResult.visibility = View.VISIBLE
                     btnCreate.isEnabled = true
@@ -355,7 +358,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     // ---------------------------------------------------------------------------
     private fun speakConfirmation() {
         val title = createdEventTitle ?: "your event"
-        val requestedLang = parsedEvent?.optString("language") ?: inferInputLanguage(etTranscript.text.toString())
+        val requestedLang = parsedEventLanguage
         val locale = resolveTtsLocale(requestedLang)
         val text = if (locale.language == "sl") {
             "Dogodek \"$title\" je dodan v Google Koledar."
@@ -438,8 +441,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun inferInputLanguage(text: String): String {
         val normalized = text.lowercase(Locale.ROOT)
-        val slovenianHints = listOf("sestanek", "jutri", "ob ", "ljubljani")
-        return if (slovenianHints.any { normalized.contains(it) }) "sl-SI" else "en-US"
+        val isLikelySlovenian = Regex("""\bsestanek\b|\bjutri\b|\bob\b|\bljubljani\b""")
+            .containsMatchIn(normalized)
+        return if (isLikelySlovenian) "sl-SI" else "en-US"
     }
 
     private fun resolveTtsLocale(languageTag: String): Locale {
