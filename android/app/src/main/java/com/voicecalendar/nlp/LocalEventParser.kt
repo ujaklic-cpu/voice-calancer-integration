@@ -48,7 +48,7 @@ object LocalEventParser {
         )
     }
 
-    private fun parseEnglish(text: String, languageTag: String): JSONObject? {
+    private fun parseEnglish(text: String, normalizedLanguageTag: String): JSONObject? {
         val pattern = Regex("meeting with\\s+(.+?)\\s+tomorrow\\s+at\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?(?:\\s+in\\s+(.+))?", RegexOption.IGNORE_CASE)
         val match = pattern.find(text) ?: return null
         val person = match.groupValues[1].trim()
@@ -64,7 +64,7 @@ object LocalEventParser {
         return buildEvent(
             title = "Meeting with $person",
             location = location.ifEmpty { null },
-            language = if (languageTag.startsWith("en-gb")) "en-GB" else "en-US",
+            language = if (normalizedLanguageTag.startsWith("en-gb")) "en-GB" else "en-US",
             rawText = text,
             hour = hour,
             minute = minute

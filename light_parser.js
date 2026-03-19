@@ -70,6 +70,7 @@ function parseEnglish(text, requestedLang = 'en-US') {
   const end = new Date(start);
   end.setHours(end.getHours() + 1);
 
+  const normalizedRequestedLang = requestedLang.toLowerCase();
   return {
     intent: 'create_event',
     title: `Meeting with ${person}`,
@@ -79,7 +80,7 @@ function parseEnglish(text, requestedLang = 'en-US') {
     location,
     attendees: [],
     reminders: [{ method: 'popup', minutes: 15 }],
-    language: requestedLang === 'en-gb' ? 'en-GB' : 'en-US',
+    language: normalizedRequestedLang.startsWith('en-gb') ? 'en-GB' : 'en-US',
     raw_text: text
   };
 }
