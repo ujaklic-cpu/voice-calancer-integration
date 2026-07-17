@@ -3,5 +3,4 @@
     android:recognitionService="android.speech.SpeechRecognizer"
     android:sessionService="com.voicecalendar.assistant.VoiceCalendarAssistantSessionService"
     android:supportsAssist="true"
-    android:supportsLaunchFromKeyguard="true"
     android:supportsLocalInteraction="true" />
