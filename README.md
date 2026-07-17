@@ -10,9 +10,9 @@ Convert spoken or typed event descriptions into Google Calendar events, with opt
 | `ai_adapter.js` | Copilot CLI subprocess wrapper with AJV validation, retries, and OpenAI fallback |
 | `db/tokenStore.js` | SQLite token store for OAuth credentials |
 | `db/schema.sql` | Database schema (tokens + event audit) |
-| `public/index.html` | Frontend SPA — dark mode UI with login wall, voice recording, and text input |
-| `android/` | Android app — on-device STT, configurable server URL, login, text input |
-| `Dockerfile` | Multi-stage production image (non-root user, health check) |
+| `public/index.html` | Frontend SPA with a login wall, voice recording, and text input |
+| `android/` | Android app with on-device STT, configurable server URL, login, and text input |
+| `Dockerfile` | Container image with a non-root user and health check |
 | `docker-compose.yml` | Development app container configured to use host speech services |
 
 ## Quickstart (local)
@@ -21,7 +21,7 @@ Convert spoken or typed event descriptions into Google Calendar events, with opt
 - Node.js 18+
 - Docker and Docker Compose for the container workflow
 - Whisper-compatible `/transcribe` and Coqui-compatible `/synthesize` services when using server-side speech features
-- [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli/about-github-copilot-in-the-cli) installed & authenticated (optional — OpenAI fallback available)
+- GitHub Copilot CLI installed and authenticated when it is the selected AI backend. An OpenAI key enables the fallback configured in `.env`.
 
 ### Setup
 
@@ -31,7 +31,7 @@ npm ci
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env — fill in GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and optionally OPENAI_API_KEY
+# Edit `.env`: fill in `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Set `OPENAI_API_KEY` only when using the fallback.
 # Set UI_USERNAME and UI_PASSWORD to enable the login wall
 
 # 3. Run database migration
@@ -40,7 +40,7 @@ npm run migrate-db
 # 4. Start the server directly
 npm start
 
-# Or start the app container. The speech service URLs default to ports 9001 and 5002 on the host.
+# Or start the app container. The Compose file maps speech-service defaults to host.docker.internal ports 9001 and 5002.
 docker-compose up --build
 ```
 
@@ -107,7 +107,7 @@ See `.env.example` for the full list. Key variables:
 | `WHISPER_URL` | `http://whisper:9001` | Whisper STT service URL |
 | `COQUI_TTS_URL` | `http://coqui-tts:5002` | Coqui TTS service URL |
 | `TOKENS_DB_PATH` | `./data/tokens.db` | SQLite database path |
-| `OPENAI_API_KEY` | _(optional)_ | OpenAI key — used as AI fallback |
+| `OPENAI_API_KEY` | _(optional)_ | OpenAI key used when the adapter falls back from Copilot CLI |
 | `COPILOT_TIMEOUT_MS` | `30000` | Timeout per Copilot CLI call |
 
 ## Android App
@@ -126,7 +126,7 @@ Located in `android/`. Built with Kotlin and the Material Components library.
 
 ### Build & Install
 
-Requirements: Android Studio (Electric Eel or later), Android SDK 26+.
+Requirements: Android Studio or a Gradle installation, plus Android SDK 26+.
 
 ```bash
 cd android
@@ -162,7 +162,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
 - Simple username/password login wall — credentials stored in environment variables, not in the codebase
 - Sessions managed by `express-session` with `httpOnly`, `sameSite=lax` cookies
 - Timing-safe credential comparison (`crypto.timingSafeEqual`)
-- OAuth tokens stored in SQLite (encrypt at rest in production — use Vault or cloud secret manager)
+- OAuth tokens stored in SQLite. Use encrypted storage and a managed secret store in production.
 - API credentials are not added to model prompts or logs
 - Non-root Docker user; multi-stage image
 
