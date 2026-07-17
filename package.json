@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate-db": "node db/migrate.js",
-    "test": "jest --forceExit --testTimeout=15000",
+    "test": "jest --testTimeout=15000",
     "lint": "eslint *.js db/*.js --ext .js"
   },
   "dependencies": {
@@ -22,7 +22,7 @@
     "express-session": "^1.19.0",
     "googleapis": "^131.0.0",
     "helmet": "^7.0.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.0.2",
     "sqlite3": "^5.1.6",
     "uuid": "^9.0.0",
     "winston": "^3.9.0"

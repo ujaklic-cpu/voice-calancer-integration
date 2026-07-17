@@ -1,6 +1,3 @@
-// db/migrate.js — run with: npm run migrate-db
-// Applies db/schema.sql to the SQLite database at TOKENS_DB_PATH.
-
 require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
@@ -9,7 +6,6 @@ const sqlite3 = require('sqlite3').verbose();
 const dbPath = process.env.TOKENS_DB_PATH || './data/tokens.db';
 const schemaPath = path.join(__dirname, 'schema.sql');
 
-// Ensure the directory for the database file exists.
 const dbDir = path.dirname(path.resolve(dbPath));
 fs.mkdirSync(dbDir, { recursive: true });
 

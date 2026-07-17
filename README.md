@@ -1,6 +1,6 @@
 # voice-calendar-integrator
 
-Convert voice input (multilingual) or typed text → AI (Copilot CLI / OpenAI) → Google Calendar → Multilingual TTS (Coqui TTS).
+Convert spoken or typed event descriptions into Google Calendar events, with optional speech recognition and spoken confirmation.
 
 ## Architecture
 
@@ -13,13 +13,14 @@ Convert voice input (multilingual) or typed text → AI (Copilot CLI / OpenAI) �
 | `public/index.html` | Frontend SPA — dark mode UI with login wall, voice recording, and text input |
 | `android/` | Android app — on-device STT, configurable server URL, login, text input |
 | `Dockerfile` | Multi-stage production image (non-root user, health check) |
-| `docker-compose.yml` | Dev stack (app, Whisper, Coqui TTS) |
+| `docker-compose.yml` | Development app container configured to use host speech services |
 
 ## Quickstart (local)
 
 ### Prerequisites
 - Node.js 18+
-- Docker & Docker Compose
+- Docker and Docker Compose for the container workflow
+- Whisper-compatible `/transcribe` and Coqui-compatible `/synthesize` services when using server-side speech features
 - [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli/about-github-copilot-in-the-cli) installed & authenticated (optional — OpenAI fallback available)
 
 ### Setup
@@ -36,11 +37,11 @@ cp .env.example .env
 # 3. Run database migration
 npm run migrate-db
 
-# 4. Start with Docker Compose (recommended)
-docker-compose up --build
-
-# — or — start the server directly
+# 4. Start the server directly
 npm start
+
+# Or start the app container. The speech service URLs default to ports 9001 and 5002 on the host.
+docker-compose up --build
 ```
 
 ### Frontend
@@ -52,12 +53,12 @@ If `UI_USERNAME` and `UI_PASSWORD` are set, you will be prompted to sign in befo
 
 Set `UI_USERNAME` and `UI_PASSWORD` in `.env` to enable simple username/password authentication on the web UI. When both variables are set:
 
-- All `/api/*` endpoints and OAuth endpoints require an active session.
+- All `/api/*` endpoints and the OAuth URL endpoint require an active session. The callback uses a short-lived signed state value instead of a session cookie.
 - `POST /auth/login` — exchange credentials for a session cookie.
 - `POST /auth/logout` — destroy the session.
 - `GET /auth/status` — returns `{ authenticated, authEnabled }`.
 
-If either variable is empty, authentication is disabled (development mode).
+If both variables are empty, authentication is disabled for development. Supplying only one is a configuration error.
 
 ## Text Input Option
 
@@ -76,15 +77,15 @@ The web UI and Android app both support a **Type** mode that skips the speech-to
 | `POST` | `/api/calendar` | Event + `userId` → create Google Calendar event _(auth required)_ |
 | `POST` | `/api/tts` | `{ text, lang, voice }` → `{ audioBase64, mimeType }` _(auth required)_ |
 | `GET` | `/auth/url?userId=xxx` | Returns Google OAuth URL _(auth required)_ |
-| `GET` | `/auth/callback` | OAuth callback — persists tokens for `userId` _(auth required)_ |
+| `GET` | `/auth/callback` | OAuth callback that validates signed state and persists tokens |
 
 ### Example: parse event with AI
 
 ```bash
 # Log in first (if auth is enabled)
-TOKEN=$(curl -s -c cookies.txt -X POST http://localhost:3000/auth/login \
+curl -s -c cookies.txt -X POST http://localhost:3000/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"secret"}')
+  -d '{"username":"admin","password":"secret"}'
 
 curl -b cookies.txt -X POST http://localhost:3000/api/ai \
   -H 'Content-Type: application/json' \
@@ -102,7 +103,7 @@ See `.env.example` for the full list. Key variables:
 | `BASE_URL` | `http://localhost:3000` | Public URL (used for OAuth redirect) |
 | `UI_USERNAME` | _(empty = disabled)_ | Web UI login username |
 | `UI_PASSWORD` | _(empty = disabled)_ | Web UI login password |
-| `SESSION_SECRET` | _(auto-generated)_ | Express session secret — set a stable value in production |
+| `SESSION_SECRET` | _(auto-generated in development)_ | Required when `NODE_ENV=production` |
 | `WHISPER_URL` | `http://whisper:9001` | Whisper STT service URL |
 | `COQUI_TTS_URL` | `http://coqui-tts:5002` | Coqui TTS service URL |
 | `TOKENS_DB_PATH` | `./data/tokens.db` | SQLite database path |
@@ -116,7 +117,7 @@ Located in `android/`. Built with Kotlin and the Material Components library.
 ### Features
 
 - **On-device speech recognition** via Android's built-in `SpeechRecognizer` — no Whisper service or VPN needed.
-- **System Voice Assistant registration scaffold** via `VoiceInteractionService` manifest/service declarations.
+- **System Voice Assistant registration** via `VoiceInteractionService` manifest/service declarations.
 - **Text input mode** — type an event description and send it directly to the AI.
 - **Configurable server URL** — point the app at any reachable server (local, LAN, or internet).
 - **Login screen** — authenticates against the server's login wall.
@@ -129,7 +130,7 @@ Requirements: Android Studio (Electric Eel or later), Android SDK 26+.
 
 ```bash
 cd android
-./gradlew assembleDebug
+gradle assembleDebug
 # APK will be in app/build/outputs/apk/debug/
 ```
 
@@ -162,24 +163,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor guide.
 - Sessions managed by `express-session` with `httpOnly`, `sameSite=lax` cookies
 - Timing-safe credential comparison (`crypto.timingSafeEqual`)
 - OAuth tokens stored in SQLite (encrypt at rest in production — use Vault or cloud secret manager)
-- No secrets embedded in prompts or logs
+- API credentials are not added to model prompts or logs
 - Non-root Docker user; multi-stage image
 
-## CI/CD
+## CI
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push/PR:
+The GitHub Actions workflow runs on pushes and pull requests:
 1. Install deps
-2. Run DB migration (non-fatal)
-3. Run Jest tests
-4. Build Android artifacts (`lint`, debug APK, release AAB)
-5. Build Docker image (main branch only)
-
-## Local Light LLM / model packaging plan
-
-Current implementation includes a deterministic local parser fallback for key Slovenian and English utterance patterns to keep parsing local when possible. For full on-device model inference in production, use this rollout:
-
-1. Add `android:nativeLibs` + model asset packaging for a small quantized model (`~0.5B-1B`) via MediaPipe LLM Inference or llama.cpp Android bindings.
-2. Ship only bootstrap binaries in APK; download language-specific model weights on first launch over HTTPS with checksum verification and resume support.
-3. Store models in app-private storage and expose readiness state through a repository + Flow.
-4. Route parse requests through local inference first; only fall back to server parser when local model is unavailable or confidence is below threshold.
-5. Version models independently from app releases and support in-app model cleanup/migration.
+2. Run the database migration and Jest tests
+3. Build Android artifacts (`lint`, debug APK, release AAB)
+4. Build the Docker image on the default branch

@@ -1,13 +1,3 @@
-// server.js — Express server wiring the main endpoints:
-//   POST /auth/login    — UI login (username + password)
-//   GET  /auth/logout   — UI logout
-//   POST /api/stt       — audio → Whisper STT service
-//   POST /api/ai        — text → AI adapter → structured event JSON (AJV-validated)
-//   POST /api/calendar  — event + userId → Google Calendar
-//   POST /api/tts       — text → Coqui TTS → audio base64
-//   GET  /auth/url      — returns Google OAuth URL for a userId
-//   GET  /auth/callback — exchanges OAuth code for tokens and persists them
-
 require('dotenv').config();
 
 const express = require('express');
@@ -27,9 +17,6 @@ const { callCopilotCli } = require('./ai_adapter');
 const { parseLightweightEvent } = require('./light_parser');
 const { saveTokens, loadTokens, saveEvent } = require('./db/tokenStore');
 
-// ---------------------------------------------------------------------------
-// Logger
-// ---------------------------------------------------------------------------
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
@@ -39,20 +26,20 @@ const logger = winston.createLogger({
   transports: [new winston.transports.Console()]
 });
 
-// ---------------------------------------------------------------------------
-// App setup
-// ---------------------------------------------------------------------------
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024, files: 1 }
+});
 const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.json({ limit: '1mb' }));
 
-// ---------------------------------------------------------------------------
-// Session
-// ---------------------------------------------------------------------------
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET is required when NODE_ENV=production');
+}
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
@@ -61,15 +48,15 @@ app.use(session({
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000  // 24 hours
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
-// ---------------------------------------------------------------------------
-// UI Auth helpers
-// ---------------------------------------------------------------------------
 const UI_USERNAME = process.env.UI_USERNAME || '';
 const UI_PASSWORD = process.env.UI_PASSWORD || '';
+if (Boolean(UI_USERNAME) !== Boolean(UI_PASSWORD)) {
+  throw new Error('UI_USERNAME and UI_PASSWORD must be configured together');
+}
 const AUTH_ENABLED = UI_USERNAME !== '' && UI_PASSWORD !== '';
 
 function requireAuth(req, res, next) {
@@ -78,10 +65,6 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: 'authentication required' });
 }
 
-// CSRF — Synchronizer Token Pattern
-// A per-session token is generated once and checked on every state-changing request.
-// The web UI / Android app fetch it from GET /auth/csrf-token and include it as
-// the X-CSRF-Token request header.
 function ensureCsrfToken(req) {
   if (!req.session.csrfToken) {
     req.session.csrfToken = crypto.randomBytes(32).toString('hex');
@@ -90,15 +73,10 @@ function ensureCsrfToken(req) {
 }
 
 function verifyCsrf(req, res, next) {
-  // GET/HEAD/OPTIONS are safe methods — no check needed.
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
-  // When auth is disabled (dev mode) we still enforce CSRF for state-changing routes,
-  // but allow callers that send any non-empty token so that the test suite works
-  // without a full session round-trip.
   const clientToken = req.headers['x-csrf-token'];
   const sessionToken = req.session && req.session.csrfToken;
   if (sessionToken && clientToken && safeEqual(clientToken, sessionToken)) return next();
-  // If no session token exists yet (e.g. unauthenticated dev mode), initialise one and accept.
   if (!AUTH_ENABLED && !sessionToken) {
     ensureCsrfToken(req);
     return next();
@@ -108,23 +86,15 @@ function verifyCsrf(req, res, next) {
 }
 
 function safeEqual(a, b) {
-  // Constant-time comparison to resist timing attacks
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) {
-    // Still perform a comparison to take constant time
-    crypto.timingSafeEqual(bufA, bufA);
-    return false;
-  }
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = crypto.createHash('sha256').update(a).digest();
+  const bufB = crypto.createHash('sha256').update(b).digest();
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
 // Serve frontend static files
 app.use(express.static('public'));
 
-// ---------------------------------------------------------------------------
-// Rate limiters
-// ---------------------------------------------------------------------------
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -142,17 +112,11 @@ const authLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 app.use('/auth/', authLimiter);
 
-// Apply auth check to all API endpoints and OAuth endpoints
 app.use('/api/', requireAuth);
 app.use('/auth/url', requireAuth);
-app.use('/auth/callback', requireAuth);
 
-// Apply CSRF validation to all state-changing routes
 app.use('/api/', verifyCsrf);
 
-// ---------------------------------------------------------------------------
-// POST /auth/login  — exchange username+password for a session
-// ---------------------------------------------------------------------------
 app.post('/auth/login', (req, res) => {
   if (!AUTH_ENABLED) return res.json({ success: true, authEnabled: false });
   const { username, password } = req.body;
@@ -164,60 +128,65 @@ app.post('/auth/login', (req, res) => {
     return res.status(401).json({ error: 'invalid credentials' });
   }
   req.session.authenticated = true;
-  // Issue a fresh CSRF token on login
   ensureCsrfToken(req);
   return res.json({ success: true, csrfToken: req.session.csrfToken });
 });
 
-// ---------------------------------------------------------------------------
-// POST /auth/logout  — destroy session
-// ---------------------------------------------------------------------------
-app.post('/auth/logout', (req, res) => {
+app.post('/auth/logout', verifyCsrf, (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
-// ---------------------------------------------------------------------------
-// GET /auth/status  — check if session is active
-// ---------------------------------------------------------------------------
 app.get('/auth/status', (req, res) => {
   const authenticated = !AUTH_ENABLED || !!(req.session && req.session.authenticated);
   return res.json({ authenticated, authEnabled: AUTH_ENABLED });
 });
 
-// ---------------------------------------------------------------------------
-// GET /auth/csrf-token  — returns (or generates) the session CSRF token
-// ---------------------------------------------------------------------------
 app.get('/auth/csrf-token', (req, res) => {
   const token = ensureCsrfToken(req);
   return res.json({ csrfToken: token });
 });
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
 const WHISPER_URL = process.env.WHISPER_URL || 'http://whisper:9001';
 const COQUI_TTS_URL = process.env.COQUI_TTS_URL || 'http://coqui-tts:5002';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-// ---------------------------------------------------------------------------
-// Input validation helpers
-// ---------------------------------------------------------------------------
-/** Validates a userId: 1–128 ASCII alphanumeric, dash, underscore, or dot characters. */
 const USER_ID_RE = /^[A-Za-z0-9._-]{1,128}$/;
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
 function isValidUserId(userId) {
   return typeof userId === 'string' && USER_ID_RE.test(userId);
 }
 
-// ---------------------------------------------------------------------------
-// OAuth2 helpers
-// ---------------------------------------------------------------------------
 function createOAuth2Client() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     `${BASE_URL}/auth/callback`
   );
+}
+
+function createOAuthState(userId, now = Date.now()) {
+  const payload = Buffer.from(JSON.stringify({ userId, expiresAt: now + OAUTH_STATE_TTL_MS }))
+    .toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifyOAuthState(state, now = Date.now()) {
+  if (typeof state !== 'string') return null;
+  const [payload, signature, extra] = state.split('.');
+  if (!payload || !signature || extra) return null;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (!safeEqual(signature, expected)) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!isValidUserId(decoded.userId) || !Number.isFinite(decoded.expiresAt) || decoded.expiresAt < now) {
+      return null;
+    }
+    return decoded.userId;
+  } catch (err) {
+    return null;
+  }
 }
 
 async function ensureTokens(userId) {
@@ -227,8 +196,7 @@ async function ensureTokens(userId) {
   const oAuth2Client = createOAuth2Client();
   oAuth2Client.setCredentials(tokens);
 
-  // expiry_date from google-auth-library is in milliseconds (like Date.now()).
-  // Refresh if the access token has expired (or will expire within 60 s).
+  // Google token expiry values use Unix milliseconds.
   const expiryDate = tokens.expiry_date;
   if (expiryDate && expiryDate - Date.now() < 60000) {
     const { credentials } = await oAuth2Client.refreshAccessToken();
@@ -238,9 +206,6 @@ async function ensureTokens(userId) {
   return oAuth2Client;
 }
 
-// ---------------------------------------------------------------------------
-// POST /api/stt
-// ---------------------------------------------------------------------------
 app.post('/api/stt', upload.single('audio'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'missing audio file' });
   try {
@@ -255,12 +220,9 @@ app.post('/api/stt', upload.single('audio'), async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/ai
-// ---------------------------------------------------------------------------
 app.post('/api/ai', async (req, res) => {
   const { text, lang } = req.body;
-  if (!text) return res.status(400).json({ error: 'missing text' });
+  if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'missing text' });
 
   const localParsed = parseLightweightEvent(text, lang || 'und');
   if (localParsed) {
@@ -271,14 +233,11 @@ app.post('/api/ai', async (req, res) => {
     const parsed = await callCopilotCli(text, lang || 'und');
     return res.json(parsed);
   } catch (err) {
-    logger.error('AI adapter error', { detail: err.message, raw: err.rawOutput });
-    return res.status(502).json({ error: 'AI adapter error', detail: err.message, raw: err.rawOutput });
+    logger.error('AI adapter error', { detail: err.message });
+    return res.status(502).json({ error: 'AI adapter error' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/calendar
-// ---------------------------------------------------------------------------
 app.post('/api/calendar', async (req, res) => {
   const event = req.body;
   if (!event || !event.title || !event.start) {
@@ -288,6 +247,12 @@ app.post('/api/calendar', async (req, res) => {
   const userId = event.userId;
   if (!userId) return res.status(400).json({ error: 'missing userId' });
   if (!isValidUserId(userId)) return res.status(400).json({ error: 'invalid userId' });
+  if (event.attendees !== undefined && !Array.isArray(event.attendees)) {
+    return res.status(400).json({ error: 'attendees must be an array' });
+  }
+  if (event.reminders !== undefined && !Array.isArray(event.reminders)) {
+    return res.status(400).json({ error: 'reminders must be an array' });
+  }
 
   try {
     const auth = await ensureTokens(userId);
@@ -308,7 +273,6 @@ app.post('/api/calendar', async (req, res) => {
 
     const created = await calendar.events.insert({ calendarId: 'primary', requestBody: eventBody });
 
-    // Audit
     await saveEvent({
       id: uuidv4(),
       userId,
@@ -327,12 +291,9 @@ app.post('/api/calendar', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/tts
-// ---------------------------------------------------------------------------
 app.post('/api/tts', async (req, res) => {
   const { text, lang, voice } = req.body;
-  if (!text) return res.status(400).json({ error: 'missing text' });
+  if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'missing text' });
   try {
     const r = await axios.post(
       `${COQUI_TTS_URL}/synthesize`,
@@ -347,9 +308,6 @@ app.post('/api/tts', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /auth/url?userId=xxx  — returns Google OAuth URL
-// ---------------------------------------------------------------------------
 app.get('/auth/url', (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'missing userId' });
@@ -359,18 +317,17 @@ app.get('/auth/url', (req, res) => {
   const url = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/calendar.events'],
-    state: userId,
+    state: createOAuthState(userId),
     prompt: 'consent'
   });
   return res.json({ url });
 });
 
-// ---------------------------------------------------------------------------
-// GET /auth/callback?code=...&state=...  — exchanges code for tokens
-// ---------------------------------------------------------------------------
 app.get('/auth/callback', async (req, res) => {
-  const { code, state: userId } = req.query;
-  if (!code || !userId) return res.status(400).json({ error: 'missing code or state' });
+  const { code, state } = req.query;
+  if (!code || !state) return res.status(400).json({ error: 'missing code or state' });
+  const userId = verifyOAuthState(state);
+  if (!userId) return res.status(400).json({ error: 'invalid or expired OAuth state' });
 
   try {
     const oAuth2Client = createOAuth2Client();
@@ -380,22 +337,26 @@ app.get('/auth/callback', async (req, res) => {
     return res.json({ success: true, userId });
   } catch (err) {
     logger.error('OAuth callback error', { detail: err.message });
-    return res.status(500).json({ error: 'OAuth error', detail: err.message });
+    return res.status(502).json({ error: 'OAuth token exchange failed' });
   }
 });
 
-// ---------------------------------------------------------------------------
-// GET /health — lightweight liveness probe used by Docker / load balancers
-// ---------------------------------------------------------------------------
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-// ---------------------------------------------------------------------------
-// Start
-// ---------------------------------------------------------------------------
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'audio file exceeds 25 MiB limit' });
+    }
+    return res.status(400).json({ error: 'invalid audio upload' });
+  }
+  return next(err);
+});
+
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
   app.listen(PORT, () => logger.info(`server listening on ${PORT}`));
 }
 
-module.exports = { app };
+module.exports = { app, createOAuthState, verifyOAuthState };

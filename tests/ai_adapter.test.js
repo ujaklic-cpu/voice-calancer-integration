@@ -1,5 +1,3 @@
-// tests/ai_adapter.test.js — unit tests for ai_adapter helpers
-
 const { extractAndValidate } = require('../ai_adapter');
 
 const VALID_EVENT = {

@@ -30,7 +30,6 @@
             android:textColor="#999999"
             android:layout_marginBottom="32dp" />
 
-        <!-- Server URL -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -51,7 +50,6 @@
             android:padding="12dp"
             android:layout_marginBottom="16dp" />
 
-        <!-- Username -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -72,7 +70,6 @@
             android:padding="12dp"
             android:layout_marginBottom="16dp" />
 
-        <!-- Password -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

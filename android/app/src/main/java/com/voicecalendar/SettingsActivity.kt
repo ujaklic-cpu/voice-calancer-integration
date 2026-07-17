@@ -12,7 +12,6 @@ class SettingsActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("voice_calendar", MODE_PRIVATE)
 
-        // Build layout programmatically — keeps the activity self-contained
         val layout = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding(48, 48, 48, 48)

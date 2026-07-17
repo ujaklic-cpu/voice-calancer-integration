@@ -47,8 +47,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run migrate-db (non-fatal)
-        run: npm run migrate-db || true
+      - name: Run database migration
+        run: npm run migrate-db
         env:
           TOKENS_DB_PATH: /tmp/test-tokens.db
 

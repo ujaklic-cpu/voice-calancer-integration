@@ -46,10 +46,8 @@ class LoginActivity : AppCompatActivity() {
         tvError = findViewById(R.id.tvLoginError)
         btnLogin = findViewById(R.id.btnLogin)
 
-        // Restore saved server URL
         etServerUrl.setText(prefs.getString("server_url", ""))
 
-        // If already have a session, try to go straight to main
         val savedCookie = prefs.getString("session_cookie", null)
         val savedUrl = prefs.getString("server_url", null)
         if (!savedCookie.isNullOrEmpty() && !savedUrl.isNullOrEmpty()) {
@@ -69,15 +67,16 @@ class LoginActivity : AppCompatActivity() {
                         .header("Cookie", cookie)
                         .get()
                         .build()
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val body = response.body?.string() ?: return@withContext false
-                        val json = JSONObject(body)
-                        json.optBoolean("authenticated", false)
-                    } else {
-                        false
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body?.string() ?: return@withContext false
+                            val json = JSONObject(body)
+                            json.optBoolean("authenticated", false)
+                        } else {
+                            false
+                        }
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     false
                 }
             }
@@ -118,11 +117,11 @@ class LoginActivity : AppCompatActivity() {
                         .url("$serverUrl/auth/login")
                         .post(body)
                         .build()
-                    val response = client.newCall(request).execute()
-                    // Extract Set-Cookie header
-                    val setCookie = response.header("Set-Cookie")
-                    val responseBody = response.body?.string() ?: ""
-                    Triple(response.isSuccessful, setCookie, responseBody)
+                    client.newCall(request).execute().use { response ->
+                        val sessionCookie = response.header("Set-Cookie")?.substringBefore(';')
+                        val responseBody = response.body?.string() ?: ""
+                        Triple(response.isSuccessful, sessionCookie, responseBody)
+                    }
                 } catch (e: Exception) {
                     Triple(false, null as String?, "Network error: ${e.message}")
                 }
@@ -131,15 +130,13 @@ class LoginActivity : AppCompatActivity() {
             btnLogin.isEnabled = true
             val (success, cookie, errorBody) = result
             if (success) {
-                val parsedBody = try { org.json.JSONObject(errorBody) } catch (e: Exception) { null }
+                val parsedBody = try { JSONObject(errorBody) } catch (_: Exception) { null }
                 val csrfToken = parsedBody?.optString("csrfToken") ?: ""
-                // Persist server URL, session cookie, and CSRF token
                 prefs.edit()
                     .putString("server_url", serverUrl)
                     .putString("session_cookie", cookie ?: "")
                     .putString("csrf_token", csrfToken)
                     .apply()
-                // If no CSRF token in login response, fetch it explicitly
                 if (csrfToken.isEmpty()) {
                     fetchAndStoreCsrfToken(serverUrl, cookie ?: "")
                 }
@@ -148,7 +145,7 @@ class LoginActivity : AppCompatActivity() {
                 try {
                     val errJson = JSONObject(errorBody)
                     showError(errJson.optString("error", "Login failed."))
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     showError(errorBody.take(200).ifEmpty { "Login failed." })
                 }
             }
@@ -169,13 +166,14 @@ class LoginActivity : AppCompatActivity() {
                         .header("Cookie", cookie)
                         .get()
                         .build()
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val body = response.body?.string() ?: return@withContext
-                        val json = JSONObject(body)
-                        val token = json.optString("csrfToken")
-                        if (token.isNotEmpty()) {
-                            prefs.edit().putString("csrf_token", token).apply()
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body?.string() ?: return@withContext
+                            val json = JSONObject(body)
+                            val token = json.optString("csrfToken")
+                            if (token.isNotEmpty()) {
+                                prefs.edit().putString("csrf_token", token).apply()
+                            }
                         }
                     }
                 } catch (_: Exception) {}

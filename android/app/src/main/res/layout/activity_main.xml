@@ -10,7 +10,6 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Header bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -48,7 +47,6 @@
                 android:stateListAnimator="@null" />
         </LinearLayout>
 
-        <!-- Header bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -95,7 +93,6 @@
                 android:layout_marginTop="6dp" />
         </LinearLayout>
 
-        <!-- Step 1: Input -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -113,7 +110,6 @@
                 android:letterSpacing="0.08"
                 android:layout_marginBottom="12dp" />
 
-            <!-- Mode toggle -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -144,7 +140,6 @@
                     android:stateListAnimator="@null" />
             </LinearLayout>
 
-            <!-- Voice panel -->
             <LinearLayout
                 android:id="@+id/panelVoice"
                 android:layout_width="match_parent"
@@ -205,7 +200,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Text panel -->
             <LinearLayout
                 android:id="@+id/panelText"
                 android:layout_width="match_parent"
@@ -228,7 +222,6 @@
                     android:layout_marginBottom="8dp" />
             </LinearLayout>
 
-            <!-- Transcript (shared) -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -279,7 +272,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Step 2: Confirm and Create -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -336,7 +328,6 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Step 3: TTS Confirmation -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

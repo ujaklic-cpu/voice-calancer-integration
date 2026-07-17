@@ -1,5 +1,7 @@
 package com.voicecalendar
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
@@ -15,7 +17,9 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.voicecalendar.nlp.LocalEventParser
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +48,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    // Views
     private lateinit var btnSignOut: Button
     private lateinit var btnSettings: Button
     private lateinit var etGoogleUserId: EditText
@@ -68,9 +71,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var btnSpeak: Button
     private lateinit var tvTtsStatus: TextView
 
-    // Speech recognizer (on-device)
     private var speechRecognizer: SpeechRecognizer? = null
     private var isRecording = false
+    private val recordAudioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            startRecording()
+        } else {
+            tvRecStatus.text = "Microphone permission is required."
+            tvRecStatus.setTextColor(getColor(R.color.error))
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -165,18 +175,27 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             tvAuthStatus.setTextColor(getColor(R.color.error))
             return
         }
-        val url = "$serverUrl/auth/url?userId=${Uri.encode(userId)}"
-        // Open in browser (the OAuth flow happens in a browser)
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addCategory(Intent.CATEGORY_BROWSABLE)
-        })
-        tvAuthStatus.text = "Complete OAuth in the browser, then return here."
-        tvAuthStatus.setTextColor(getColor(R.color.text_ok))
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { fetchAuthorizationUrl(serverUrl, userId) }
+            if (!result.first) {
+                tvAuthStatus.text = "Authorization failed: ${result.second.take(160)}"
+                tvAuthStatus.setTextColor(getColor(R.color.error))
+                return@launch
+            }
+            val url = try { JSONObject(result.second).getString("url") } catch (_: Exception) { null }
+            if (url == null) {
+                tvAuthStatus.text = "Authorization server returned an invalid response."
+                tvAuthStatus.setTextColor(getColor(R.color.error))
+                return@launch
+            }
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            })
+            tvAuthStatus.text = "Complete OAuth in the browser, then return here."
+            tvAuthStatus.setTextColor(getColor(R.color.text_ok))
+        }
     }
 
-    // ---------------------------------------------------------------------------
-    // Voice recording (on-device SpeechRecognizer — no Whisper needed)
-    // ---------------------------------------------------------------------------
     private fun toggleRecord() {
         if (isRecording) {
             stopRecording()
@@ -186,6 +205,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun startRecording() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            recordAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             tvRecStatus.text = "On-device speech recognition not available."
             tvRecStatus.setTextColor(getColor(R.color.error))
@@ -250,17 +273,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btnRecord.backgroundTintList = getColorStateList(R.color.accent)
     }
 
-    // ---------------------------------------------------------------------------
-    // Server-side STT via Whisper (optional fallback)
-    // ---------------------------------------------------------------------------
     private fun runStt() {
         tvSttStatus.text = "On-device STT is preferred. Use the Record button above."
         tvSttStatus.setTextColor(getColor(R.color.text_dim))
     }
 
-    // ---------------------------------------------------------------------------
-    // AI parsing
-    // ---------------------------------------------------------------------------
     private fun runAi() {
         val text = etTranscript.text.toString().trim()
         if (text.isEmpty()) {
@@ -295,7 +312,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val result = withContext(Dispatchers.IO) { callApi("POST", "/api/ai", payload) }
             btnParse.isEnabled = true
             if (result.first) {
-                val json = try { JSONObject(result.second) } catch (e: Exception) { null }
+                val json = try { JSONObject(result.second) } catch (_: Exception) { null }
                 if (json != null) {
                     parsedEvent = json
                     parsedEventLanguage = json.optString("language", lang)
@@ -315,9 +332,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // Create calendar event
-    // ---------------------------------------------------------------------------
     private fun createEvent() {
         val event = parsedEvent ?: return
         val userId = etGoogleUserId.text.toString().trim()
@@ -336,12 +350,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) { callApi("POST", "/api/calendar", event.toString()) }
             if (result.first) {
-                val json = try { JSONObject(result.second) } catch (e: Exception) { null }
+                val json = try { JSONObject(result.second) } catch (_: Exception) { null }
                 createdEventTitle = try {
                     json?.optJSONObject("created")?.optString("summary")
                         ?: parsedEvent?.optString("title")
                         ?: "your event"
-                } catch (e: Exception) { "your event" }
+                } catch (_: Exception) { "your event" }
                 tvCalStatus.text = "Event created."
                 tvCalStatus.setTextColor(getColor(R.color.text_ok))
                 btnSpeak.isEnabled = true
@@ -353,9 +367,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // TTS confirmation (on-device Android TTS)
-    // ---------------------------------------------------------------------------
     private fun speakConfirmation() {
         val title = createdEventTitle ?: "your event"
         val requestedLang = parsedEventLanguage
@@ -378,9 +389,21 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // HTTP helper
-    // ---------------------------------------------------------------------------
+    private fun fetchAuthorizationUrl(serverUrl: String, userId: String): Pair<Boolean, String> {
+        val cookie = prefs.getString("session_cookie", "") ?: ""
+        return try {
+            val builder = Request.Builder()
+                .url("${serverUrl.trimEnd('/')}/auth/url?userId=${Uri.encode(userId)}")
+                .get()
+            if (cookie.isNotEmpty()) builder.header("Cookie", cookie)
+            client.newCall(builder.build()).execute().use { response ->
+                Pair(response.isSuccessful, response.body?.string() ?: "")
+            }
+        } catch (e: Exception) {
+            Pair(false, e.message ?: "Network error")
+        }
+    }
+
     private fun callApi(method: String, path: String, body: String): Pair<Boolean, String> {
         val serverUrl = prefs.getString("server_url", "") ?: ""
         if (serverUrl.isEmpty()) return Pair(false, "Server URL not configured.")
@@ -397,17 +420,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 "POST" -> builder.post(reqBody).build()
                 else   -> builder.get().build()
             }
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-            Pair(response.isSuccessful, responseBody)
+            client.newCall(request).execute().use { response ->
+                Pair(response.isSuccessful, response.body?.string() ?: "")
+            }
         } catch (e: Exception) {
             Pair(false, e.message ?: "Unknown error")
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // Sign out
-    // ---------------------------------------------------------------------------
     private fun signOut() {
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
@@ -422,7 +442,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             .header("X-CSRF-Token", csrfToken)
                             .post("{}".toRequestBody("application/json".toMediaType()))
                             .build()
-                        client.newCall(request).execute()
+                        client.newCall(request).execute().close()
                     }
                 } catch (_: Exception) {}
             }

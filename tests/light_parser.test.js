@@ -36,6 +36,6 @@ describe('parseLightweightEvent', () => {
     const parsed = parseLightweightEvent(input, 'en-US');
 
     expect(parsed).toBeTruthy();
-    expect(parsed.start).toContain('T21:00:00');
+    expect(new Date(parsed.start).getHours()).toBe(21);
   });
 });

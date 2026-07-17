@@ -157,7 +157,6 @@
       display: block;
     }
 
-    /* Login overlay */
     #loginOverlay {
       position: fixed;
       inset: 0;
@@ -224,7 +223,6 @@
 </head>
 <body>
 
-  <!-- Login overlay -->
   <div id="loginOverlay">
     <div id="loginBox">
       <h2>Voice Calendar Integrator</h2>
@@ -237,7 +235,6 @@
     </div>
   </div>
 
-  <!-- Main app -->
   <div id="main">
     <div class="header-bar">
       <div>
@@ -247,7 +244,6 @@
       <button class="btn-ghost" id="logoutBtn" onclick="doLogout()" style="display:none">Sign out</button>
     </div>
 
-    <!-- Step 0: Google Auth -->
     <div class="card">
       <h2><span class="step">0</span>Google Calendar Auth</h2>
       <div class="row">
@@ -257,7 +253,6 @@
       <div id="authStatus" class="status"></div>
     </div>
 
-    <!-- Step 1: Input (voice or text) -->
     <div class="card">
       <h2><span class="step">1</span>Input</h2>
       <div class="input-mode-toggle">
@@ -265,7 +260,6 @@
         <button id="modeText" onclick="setMode('text')">Type</button>
       </div>
 
-      <!-- Voice mode -->
       <div id="voicePanel">
         <div class="row">
           <button id="recordBtn" class="btn-primary" onclick="toggleRecord()">Start Recording</button>
@@ -278,7 +272,6 @@
         </div>
       </div>
 
-      <!-- Text mode -->
       <div id="textPanel" style="display:none">
         <label>Type your event description:</label>
         <textarea id="directText" rows="3" placeholder="e.g. Meeting with Ana tomorrow at 10am for 1 hour"></textarea>
@@ -292,7 +285,6 @@
       </div>
     </div>
 
-    <!-- Step 2: Confirm & Create -->
     <div class="card">
       <h2><span class="step">2</span>Confirm and Create Event</h2>
       <pre id="aiResult" style="display:none"></pre>
@@ -303,7 +295,6 @@
       <pre id="calResult" style="display:none"></pre>
     </div>
 
-    <!-- Step 3: TTS Confirmation -->
     <div class="card">
       <h2><span class="step">3</span>Voice Confirmation</h2>
       <div class="row">
@@ -319,7 +310,6 @@
     let inputMode = 'voice';
     let csrfToken = '';
 
-    // ---- Bootstrap ----
     (async function init() {
       try {
         const r = await fetch('/auth/status');
@@ -355,7 +345,6 @@
       return { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken };
     }
 
-    // ---- Login ----
     document.getElementById('loginPass').addEventListener('keydown', e => {
       if (e.key === 'Enter') doLogin();
     });
@@ -374,7 +363,6 @@
         });
         const d = await r.json();
         if (!r.ok) { errEl.textContent = d.error || 'Login failed.'; return; }
-        // Server returns a CSRF token in the login response
         csrfToken = d.csrfToken || '';
         if (!csrfToken) await fetchCsrfToken();
         showMain(true);
@@ -388,7 +376,6 @@
       location.reload();
     }
 
-    // ---- Input mode toggle ----
     function setMode(mode) {
       inputMode = mode;
       document.getElementById('modeVoice').classList.toggle('active', mode === 'voice');
@@ -405,22 +392,31 @@
       document.getElementById('aiBtn').disabled = this.value.trim() === '';
     });
 
-    // ---- Status helpers ----
     function setStatus(id, msg, type) {
       const el = document.getElementById(id);
       el.textContent = msg;
       el.className = 'status' + (type ? ' ' + type : '');
     }
 
-    // ---- Auth (Google Calendar) ----
-    function startAuth() {
+    async function startAuth() {
       const userId = document.getElementById('userId').value.trim();
       if (!userId) { setStatus('authStatus', 'Enter a user ID first.', 'error'); return; }
-      window.open('/auth/url?userId=' + encodeURIComponent(userId), '_blank');
-      setStatus('authStatus', 'Complete OAuth in the new tab, then return here.', 'ok');
+      const authWindow = window.open('about:blank', '_blank');
+      if (!authWindow) { setStatus('authStatus', 'Allow popups to authorize Google Calendar.', 'error'); return; }
+      authWindow.opener = null;
+      setStatus('authStatus', 'Starting authorization...', '');
+      try {
+        const response = await fetch('/auth/url?userId=' + encodeURIComponent(userId));
+        const data = await response.json();
+        if (!response.ok || !data.url) throw new Error(data.error || 'Invalid authorization response');
+        authWindow.location.replace(data.url);
+        setStatus('authStatus', 'Complete OAuth in the new tab, then return here.', 'ok');
+      } catch (error) {
+        authWindow.close();
+        setStatus('authStatus', 'Authorization failed: ' + error.message, 'error');
+      }
     }
 
-    // ---- Recording ----
     async function toggleRecord() {
       const btn = document.getElementById('recordBtn');
       if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -448,7 +444,6 @@
       setStatus('recStatus', 'Recording...', '');
     }
 
-    // ---- STT ----
     async function runStt() {
       if (!audioBlob) return;
       setStatus('sttStatus', 'Transcribing...', '');
@@ -469,7 +464,6 @@
       }
     }
 
-    // ---- AI ----
     async function runAi() {
       const text = document.getElementById('transcript').value.trim();
       if (!text) { setStatus('aiStatus', 'Enter text first.', 'error'); return; }
@@ -496,7 +490,6 @@
       }
     }
 
-    // ---- Calendar ----
     async function createEvent() {
       if (!parsedEvent) return;
       const userId = document.getElementById('userId').value.trim();
@@ -523,7 +516,6 @@
       }
     }
 
-    // ---- TTS ----
     async function runTts() {
       if (!createdEvent) return;
       const title = createdEvent?.summary || parsedEvent?.title || 'your event';

@@ -1,20 +1,9 @@
-// AI adapter — calls GitHub Copilot CLI (primary) or OpenAI API (fallback).
-// Features:
-//   • Strict AJV schema validation of the AI output.
-//   • Exponential-backoff retries (up to MAX_RETRIES attempts).
-//   • Configurable per-call timeout (COPILOT_TIMEOUT_MS); kills the child process on timeout.
-//   • Falls back to OpenAI when Copilot CLI is unavailable and OPENAI_API_KEY is set.
-//   • Sensitive data is never embedded in prompts.
-
 require('dotenv').config();
 const { spawn } = require('child_process');
 const axios = require('axios');
 const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 
-// ---------------------------------------------------------------------------
-// AJV schema — matches the aiEvent contract from the problem statement.
-// ---------------------------------------------------------------------------
 const ajv = new Ajv({ allErrors: true });
 addFormats(ajv);
 
@@ -49,9 +38,6 @@ const aiEventSchema = {
 
 const validateAiEvent = ajv.compile(aiEventSchema);
 
-// ---------------------------------------------------------------------------
-// Prompt builder — no secrets embedded.
-// ---------------------------------------------------------------------------
 function buildPrompt(transcript, lang) {
   return (
     'You are an assistant that MUST output exactly a single valid JSON object with the following keys:\n' +
@@ -64,10 +50,6 @@ function buildPrompt(transcript, lang) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Extract + validate JSON from a raw string.
-// Returns { data } on success or { error, raw } on failure.
-// ---------------------------------------------------------------------------
 function extractAndValidate(raw) {
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { error: 'No JSON found in output', raw };
@@ -84,9 +66,6 @@ function extractAndValidate(raw) {
   return { data: parsed };
 }
 
-// ---------------------------------------------------------------------------
-// Copilot CLI call — spawns `copilot chat` and feeds the prompt via stdin.
-// ---------------------------------------------------------------------------
 const COPILOT_TIMEOUT_MS = parseInt(process.env.COPILOT_TIMEOUT_MS || '30000', 10);
 
 function callCopilotOnce(prompt) {
@@ -118,9 +97,6 @@ function callCopilotOnce(prompt) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// OpenAI fallback — used when Copilot CLI is unavailable.
-// ---------------------------------------------------------------------------
 async function callOpenAiFallback(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not set; no LLM fallback available');
@@ -140,9 +116,6 @@ async function callOpenAiFallback(prompt) {
   return response.data.choices[0].message.content;
 }
 
-// ---------------------------------------------------------------------------
-// Main export — with exponential-backoff retries.
-// ---------------------------------------------------------------------------
 const MAX_RETRIES = 3;
 
 async function callCopilotCli(transcript, lang) {
@@ -165,14 +138,13 @@ async function callCopilotCli(transcript, lang) {
       lastError.rawOutput = result.raw;
     } catch (err) {
       lastError = err;
-      // If Copilot CLI binary is not available, switch to OpenAI fallback immediately.
       if (!useFallback && (err.code === 'ENOENT' || /not found|no such file/i.test(err.message))) {
         useFallback = true;
       }
     }
 
     if (attempt < MAX_RETRIES) {
-      const delay = 500 * Math.pow(2, attempt - 1); // 500ms, 1s, 2s
+      const delay = 500 * Math.pow(2, attempt - 1);
       await new Promise(r => setTimeout(r, delay));
     }
   }
@@ -183,4 +155,3 @@ async function callCopilotCli(transcript, lang) {
 }
 
 module.exports = { callCopilotCli, extractAndValidate, validateAiEvent, aiEventSchema };
-

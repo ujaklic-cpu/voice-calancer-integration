@@ -1,5 +1,4 @@
--- Voice Calendar Integrator — SQLite schema (development)
--- Use a managed Postgres instance in production.
+-- Development schema. Production deployments should encrypt tokens at rest.
 
 CREATE TABLE IF NOT EXISTS tokens (
   userId      TEXT PRIMARY KEY,

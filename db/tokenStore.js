@@ -1,5 +1,4 @@
-// db/tokenStore.js — SQLite-backed token store for OAuth credentials.
-// In production replace with Vault / cloud secret manager and encrypt tokens_json at rest.
+// Production deployments should encrypt stored OAuth tokens or use a secret manager.
 
 require('dotenv').config();
 const path = require('path');
@@ -18,11 +17,6 @@ function getDb() {
   return _db;
 }
 
-/**
- * Persist OAuth tokens for a user.
- * @param {string} userId
- * @param {object} tokens  — the tokens object from google-auth-library
- */
 function saveTokens(userId, tokens) {
   return new Promise((resolve, reject) => {
     const db = getDb();
@@ -37,11 +31,6 @@ function saveTokens(userId, tokens) {
   });
 }
 
-/**
- * Load stored tokens for a user (returns null if not found).
- * @param {string} userId
- * @returns {Promise<object|null>}
- */
 function loadTokens(userId) {
   return new Promise((resolve, reject) => {
     const db = getDb();
@@ -50,16 +39,13 @@ function loadTokens(userId) {
       if (!row) return resolve(null);
       try {
         resolve(JSON.parse(row.tokens_json));
-      } catch (e) {
-        resolve(null);
+      } catch (err) {
+        reject(new Error(`Stored OAuth tokens for '${userId}' are invalid JSON`, { cause: err }));
       }
     });
   });
 }
 
-/**
- * Persist an event audit record.
- */
 function saveEvent(eventRecord) {
   return new Promise((resolve, reject) => {
     const db = getDb();

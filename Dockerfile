@@ -3,9 +3,8 @@ FROM node:18-slim AS deps
 
 WORKDIR /usr/src/app
 COPY package*.json ./
-RUN npm ci --production
+RUN npm ci --omit=dev
 
-# ---- runtime ----
 FROM node:18-slim
 
 RUN groupadd --gid 1001 appuser && useradd --uid 1001 --gid 1001 --no-create-home appuser

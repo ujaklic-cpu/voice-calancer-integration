@@ -1,9 +1,6 @@
-// tests/server.test.js — integration tests for Express endpoints (mocked upstream services)
-
 const request = require('supertest');
 const { app } = require('../server');
 
-// ---- Mock external modules ----
 jest.mock('../ai_adapter', () => ({
   callCopilotCli: jest.fn()
 }));
@@ -19,7 +16,6 @@ const axios = require('axios');
 
 const { callCopilotCli } = require('../ai_adapter');
 
-// ---- /health ----
 describe('GET /health', () => {
   it('returns 200 with status ok', async () => {
     const res = await request(app).get('/health');
@@ -28,7 +24,6 @@ describe('GET /health', () => {
   });
 });
 
-// ---- /auth/status ----
 describe('GET /auth/status', () => {
   it('returns authenticated=true when auth is disabled (no env vars set)', async () => {
     const res = await request(app).get('/auth/status');
@@ -38,7 +33,6 @@ describe('GET /auth/status', () => {
   });
 });
 
-// ---- /auth/login ----
 describe('POST /auth/login', () => {
   it('returns success when auth is disabled', async () => {
     const res = await request(app)
@@ -49,23 +43,8 @@ describe('POST /auth/login', () => {
     expect(res.body.authEnabled).toBe(false);
   });
 
-  it('returns 400 when credentials are missing', async () => {
-    // Enable auth temporarily
-    process.env.UI_USERNAME = 'admin';
-    process.env.UI_PASSWORD = 'secret';
-    // Need a fresh require to pick up env change — test the validation logic directly
-    const res = await request(app)
-      .post('/auth/login')
-      .send({});
-    // When auth env vars are set at module load time, this tests the enabled path
-    // (env vars were already read at require time, so we test the disabled path here)
-    expect([200, 400]).toContain(res.status);
-    delete process.env.UI_USERNAME;
-    delete process.env.UI_PASSWORD;
-  });
 });
 
-// ---- /auth/logout ----
 describe('POST /auth/logout', () => {
   it('returns success', async () => {
     const res = await request(app).post('/auth/logout');
@@ -74,7 +53,6 @@ describe('POST /auth/logout', () => {
   });
 });
 
-// ---- /api/stt ----
 describe('POST /api/stt', () => {
   it('returns 400 when no audio file provided', async () => {
     const res = await request(app).post('/api/stt');
@@ -102,7 +80,6 @@ describe('POST /api/stt', () => {
   });
 });
 
-// ---- /api/ai ----
 describe('POST /api/ai', () => {
   const VALID_EVENT = {
     intent: 'create_event', title: 'Meeting', start: '2026-03-13T10:00:00Z',
@@ -147,10 +124,10 @@ describe('POST /api/ai', () => {
       .send({ text: 'something', lang: 'en' });
     expect(res.status).toBe(502);
     expect(res.body.error).toMatch(/AI adapter error/i);
+    expect(res.body).not.toHaveProperty('raw');
   });
 });
 
-// ---- /api/tts ----
 describe('POST /api/tts', () => {
   it('returns 400 when text is missing', async () => {
     const res = await request(app).post('/api/tts').send({});
@@ -180,7 +157,6 @@ describe('POST /api/tts', () => {
   });
 });
 
-// ---- /api/calendar ----
 describe('POST /api/calendar', () => {
   it('returns 400 when title is missing', async () => {
     const res = await request(app)
@@ -205,9 +181,17 @@ describe('POST /api/calendar', () => {
       .send({ title: 'Meeting', start: '2026-03-13T10:00:00Z', userId: 'no-tokens-user' });
     expect(res.status).toBe(401);
   });
+
+  it('rejects non-array attendees before calling Google Calendar', async () => {
+    const { loadTokens } = require('../db/tokenStore');
+    loadTokens.mockResolvedValueOnce({ access_token: 'test' });
+    const res = await request(app)
+      .post('/api/calendar')
+      .send({ title: 'Meeting', start: '2026-03-13T10:00:00Z', userId: 'u1', attendees: 'not-an-array' });
+    expect(res.status).toBe(400);
+  });
 });
 
-// ---- /auth/url ----
 describe('GET /auth/url', () => {
   it('returns 400 when userId is missing', async () => {
     const res = await request(app).get('/auth/url');
@@ -220,5 +204,20 @@ describe('GET /auth/url', () => {
     const res = await request(app).get('/auth/url?userId=user123');
     expect(res.status).toBe(200);
     expect(res.body.url).toMatch(/accounts\.google\.com/);
+  });
+});
+
+describe('OAuth state', () => {
+  const { createOAuthState, verifyOAuthState } = require('../server');
+
+  it('round-trips a signed user ID and rejects tampering', () => {
+    const state = createOAuthState('user123', 1000);
+    expect(verifyOAuthState(state, 1001)).toBe('user123');
+    expect(verifyOAuthState(`${state}x`, 1001)).toBeNull();
+  });
+
+  it('rejects expired state', () => {
+    const state = createOAuthState('user123', 1000);
+    expect(verifyOAuthState(state, 1000 + 10 * 60 * 1000 + 1)).toBeNull();
   });
 });
