@@ -1,5 +1,7 @@
 # voice-calendar-integrator
 
+Status: locally testable prototype. Server tests cover HTTP and parsing paths; Google Calendar, speech services, and Android runtime behavior require external services or devices.
+
 Convert spoken or typed event descriptions into Google Calendar events, with optional speech recognition and spoken confirmation.
 
 ## Architecture
@@ -173,3 +175,7 @@ The GitHub Actions workflow runs on pushes and pull requests:
 2. Run the database migration and Jest tests
 3. Build Android artifacts (`lint`, debug APK, release AAB)
 4. Build the Docker image on the default branch
+
+## License
+
+MIT. See [LICENSE](LICENSE).
